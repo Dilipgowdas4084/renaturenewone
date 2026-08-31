@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+:root {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #18372d;
+  background-color: #edf4ee;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body, #root {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Hide scrollbars globally — scrolling still works where pages need it */
+html {
+  scrollbar-width: none;              /* Firefox */
+  -ms-overflow-style: none;           /* old Edge */
+}
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;                      /* Chrome, Safari */
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(240, 149, 184, 0.26), transparent 18%),
+    radial-gradient(circle at top right, rgba(180, 226, 194, 0.24), transparent 22%),
+    linear-gradient(135deg, #f9f1f5 0%, #edf6ef 48%, #edf2f0 100%);
+}
+
+@keyframes sway {
+  0% {
+    transform: rotate(-14deg) translateY(0px);
+  }
+  100% {
+    transform: rotate(-6deg) translateY(16px);
+  }
+}
+
+button, input {
+  font: inherit;
+}
+
+/* Admin scrollbar - re-enable for admin pages */
+.admin-layout {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(134, 239, 172, 0.2) transparent;
+}
+.admin-layout ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  display: block;
+}
+.admin-layout ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-layout ::-webkit-scrollbar-thumb {
+  background: rgba(134, 239, 172, 0.2);
+  border-radius: 3px;
+}
+
+/* Print styles */
+@media print {
+  nav, footer, .no-print { display: none !important; }
+  body { background: white !important; color: black !important; }
+}
+
+/* Skeleton animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
