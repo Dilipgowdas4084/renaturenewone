@@ -460,9 +460,9 @@ export default function Home() {
                 <Link to="/login" className="text-sm text-stone-500 hover:text-[#86efac] transition-colors">Login</Link>
                 <Link to="/register" className="text-sm text-stone-500 hover:text-[#86efac] transition-colors">Register</Link>
                 <div className="flex items-center gap-4 mt-2">
-                  <a href="#" className="text-stone-500 hover:text-[#86efac] transition-colors text-sm">Instagram</a>
-                  <a href="#" className="text-stone-500 hover:text-[#86efac] transition-colors text-sm">LinkedIn</a>
-                  <a href="#" className="text-stone-500 hover:text-[#86efac] transition-colors text-sm">Twitter</a>
+                  <a href="https://www.instagram.com/renature_nmamit/" target="_blank" rel="noopener noreferrer" className="text-stone-500 hover:text-[#86efac] transition-colors text-sm">Instagram</a>
+                  <a href="https://www.linkedin.com/company/renature-nmamit/" target="_blank" rel="noopener noreferrer" className="text-stone-500 hover:text-[#86efac] transition-colors text-sm">LinkedIn</a>
+                  <a href="https://x.com/renature_club" target="_blank" rel="noopener noreferrer" className="text-stone-500 hover:text-[#86efac] transition-colors text-sm">Twitter</a>
                 </div>
               </div>
             </div>
