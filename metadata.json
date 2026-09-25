@@ -1,0 +1,6 @@
+{
+  "name": "Renature",
+  "description": "Nature and environmental conservation club website with event management, registrations, and leaderboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
