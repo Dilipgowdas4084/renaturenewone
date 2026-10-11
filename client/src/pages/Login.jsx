@@ -31,15 +31,6 @@ const SOCIAL_LINKS = [
       </svg>
     ),
   },
-  {
-    name: 'X / Twitter',
-    href: 'https://x.com/renature_club',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-        <path d="M18.9 3H21l-6.55 7.49L22.5 21h-6.9l-5.4-6.53L3.9 21H1.8l7.02-8.03L1 3h7.05l4.88 5.96L18.9 3Zm-1.2 16.17h1.15L7.4 4.72H6.16L17.7 19.17Z" />
-      </svg>
-    ),
-  },
 ];
 
 const loginSchema = yup.object().shape({

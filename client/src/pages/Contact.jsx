@@ -11,9 +11,7 @@ const InstagramIcon = ({ className }) => (
 const LinkedinIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 9h4v12H3V9Zm7 0h3.8v1.64h.05c.53-1 1.83-2.05 3.77-2.05C21.5 8.59 22 11 22 14.06V21h-4v-6.2c0-1.48-.03-3.38-2.06-3.38-2.07 0-2.39 1.62-2.39 3.28V21h-4V9Z" /></svg>
 );
-const TwitterIcon = ({ className }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M18.9 3H21l-6.55 7.49L22.5 21h-6.9l-5.4-6.53L3.9 21H1.8l7.02-8.03L1 3h7.05l4.88 5.96L18.9 3Zm-1.2 16.17h1.15L7.4 4.72H6.16L17.7 19.17Z" /></svg>
-);
+
 
 // Village props shown on each contact card (visual only)
 const CARD_DECOR = [
@@ -45,13 +43,11 @@ export default function Contact() {
 
   const [siteContact, setSiteContact] = useState({
     email: 'renature.nmamit.nitte@gmail.com',
-    phone: '+91 8258 281263 / +91 94812 34567',
+    phone: '+91 733 846 1410 / +91 93217 62973',
     address: 'NMAM Institute of Technology, Nitte, Karkala Taluk, Udupi - 574110, Karnataka',
-    room: 'Student Activity Center, Cabin 104, Green Wing',
     hours: 'Mon – Sat: 9:00 AM – 5:30 PM',
     instagram: 'https://instagram.com/renature_nmamit/',
     linkedin: 'https://linkedin.com/company/renature-nmamit/',
-    twitter: 'https://x.com/renature_club',
     about_club_summary: 'renature is a student-led ecological and sustainability movement at NMAMIT dedicated to fostering biodiversity consciousness, hands-on afforestation, clean-up drives, and conservation education.'
   });
 
@@ -89,14 +85,13 @@ export default function Contact() {
       label: 'Campus Base',
       value: siteContact.address,
       href: null,
-      description: siteContact.room,
+      description: null,
     },
   ];
 
   const socialLinks = [
     { name: 'Instagram', icon: InstagramIcon, href: siteContact.instagram, color: 'hover:text-pink-400 hover:border-pink-500/30 hover:bg-pink-500/10' },
     { name: 'LinkedIn', icon: LinkedinIcon, href: siteContact.linkedin, color: 'hover:text-sky-400 hover:border-sky-500/30 hover:bg-sky-500/10' },
-    { name: 'X / Twitter', icon: TwitterIcon, href: siteContact.twitter, color: 'hover:text-emerald-400 hover:border-emerald-500/30 hover:bg-emerald-500/10' },
   ];
 
   const handleChange = (e) => {
@@ -296,8 +291,7 @@ export default function Contact() {
                 <div className="px-panel--thin min-h-48 p-5 flex items-center justify-center bg-[#b9d9a0]">
                   <div className="text-center">
                     <MapPin className="w-8 h-8 text-forest mx-auto mb-2" aria-hidden="true" />
-                    <p className="text-bark font-semibold text-sm">{siteContact.room}</p>
-                    <p className="text-bark/70 text-xs mt-1">{siteContact.address}</p>
+                    <p className="text-bark font-semibold text-sm">{siteContact.address}</p>
                   </div>
                 </div>
               </Parchment>

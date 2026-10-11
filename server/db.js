@@ -373,7 +373,7 @@ const memoryDb = {
     },
     contact: {
       email: 'renature.nmamit.nitte@gmail.com',
-      phone: '+91 8258 281263 / +91 94812 34567',
+      phone: '+91 733 846 1410 / +91 93217 62973',
       address: 'NMAM Institute of Technology, Nitte, Karkala Taluk, Udupi - 574110, Karnataka',
       room: 'Student Activity Center, Cabin 104, Green Wing',
       hours: 'Mon – Sat: 9:00 AM – 5:30 PM (Field Expeditions on Weekends)',
