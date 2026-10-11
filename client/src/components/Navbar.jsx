@@ -1,19 +1,40 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, Leaf, Sparkles, LayoutDashboard, LogOut } from 'lucide-react';
-import { getValidAccessToken, clearTokens } from '../utils/auth';
+import { Menu, X, LayoutDashboard, LogOut } from 'lucide-react';
+import { isLoggedIn, getCurrentRole, dashboardPathFor, clearTokens } from '../utils/auth';
+import { texture } from '../utils/pixelTextures';
+import { useDayNight } from '../context/DayNightContext';
+
+function DayNightToggle({ compact = false }) {
+  const { night, toggleNight } = useDayNight();
+  return (
+    <button
+      type="button"
+      onClick={toggleNight}
+      aria-pressed={night}
+      aria-label={night ? 'Switch to day (light mode)' : 'Switch to night (dark mode)'}
+      title={night ? 'Switch to day' : 'Switch to night'}
+      className={`px-btn px-btn--sm ${night ? 'px-btn--sun' : 'px-btn--stone'} ${compact ? '!px-2.5' : ''}`}
+    >
+      <span aria-hidden="true">{night ? '☀' : '🌙'}</span>
+      {!compact && (night ? 'Day' : 'Night')}
+    </button>
+  );
+}
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
+  const [role, setRole] = useState(null);
   const [logoError, setLogoError] = useState(false);
-  
+
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    setIsAuthed(!!getValidAccessToken());
+    setIsAuthed(isLoggedIn());
+    setRole(getCurrentRole());
     setMobileOpen(false);
   }, [location]);
 
@@ -26,6 +47,7 @@ export default function Navbar() {
   const handleLogout = () => {
     clearTokens();
     setIsAuthed(false);
+    setRole(null);
     navigate('/');
   };
 
@@ -38,170 +60,128 @@ export default function Navbar() {
     { label: 'Contact', to: '/contact' },
   ];
 
+  const isActive = (to) => (to === '/' ? location.pathname === '/' : location.pathname.startsWith(to));
+
   return (
-    <nav 
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled 
-          ? 'bg-[#061912]/90 backdrop-blur-xl border-b border-emerald-500/15 shadow-xl shadow-black/25' 
-          : 'bg-transparent border-b border-transparent'
-      }`}
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 font-body border-b-4 border-[#1a120b] transition-shadow duration-300 ${scrolled ? 'shadow-[0_6px_0_rgba(0,0,0,0.25)]' : ''}`}
+      style={texture('darkPlanks', 64)}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-        
-        {/* Brand / Logo */}
-        <div className="flex items-center">
-          <Link to="/" className="group flex items-center gap-2.5 sm:gap-3">
+      <div className="absolute inset-0 bg-[#1c140c]/55 pointer-events-none" />
+      <div className="relative w-full px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-6">
+
+        {/* Logos: NITTE first, then renature */}
+        <div className="flex items-center shrink-0">
+          <img
+            src="/nitte-logo.jpg"
+            alt="NITTE NMAM Institute of Technology"
+            style={{ mixBlendMode: 'screen' }}
+            className="hidden sm:block lg:hidden xl:block h-7 w-auto shrink-0 object-contain"
+          />
+          {/* Divider only shows at the sizes where the NITTE logo is visible */}
+          <Link
+            to="/"
+            className="flex items-center shrink-0 sm:ml-4 sm:pl-4 sm:border-l-2 sm:border-dashed sm:border-cream/15 lg:ml-0 lg:pl-0 lg:border-l-0 xl:ml-4 xl:pl-4 xl:border-l-2"
+          >
             {!logoError ? (
               <img
                 src="/logo.png"
                 alt="renature"
                 style={{ mixBlendMode: 'screen' }}
-                className="h-9 sm:h-12 w-auto object-contain mix-blend-screen transition-transform duration-300 group-hover:scale-105 filter drop-shadow-[0_2px_8px_rgba(52,211,153,0.3)]"
+                className="h-14 sm:h-16 w-auto object-contain"
                 onError={() => setLogoError(true)}
               />
             ) : (
-              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center transition-transform group-hover:scale-105 shadow-md shadow-emerald-500/10">
-                <Leaf className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-              </div>
+              <span className="px-title text-cream text-xl tracking-wide">RENATURE</span>
             )}
-            <div className="flex flex-col">
-              <span className="text-lg sm:text-2xl font-extrabold tracking-tight text-white group-hover:text-emerald-300 transition-colors">
-                re<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">nature</span>
-              </span>
-              <span className="hidden sm:inline-block text-[10px] uppercase tracking-widest text-emerald-400/80 font-bold -mt-0.5">
-                NMAMIT Eco-Initiative
-              </span>
-            </div>
           </Link>
         </div>
 
-        {/* Desktop Navigation Links */}
-        <div className="hidden lg:flex items-center gap-1 xl:gap-2 bg-black/20 p-1.5 rounded-full border border-white/[0.06] backdrop-blur-md">
-          {navLinks.map(link => {
-            const isActive = location.pathname === link.to;
-            return (
-              <Link 
-                key={link.label} 
-                to={link.to} 
-                className={`relative px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-all duration-200 ${
-                  isActive 
-                    ? 'text-emerald-200 bg-emerald-500/20 border border-emerald-500/30 shadow-sm shadow-emerald-500/15 font-semibold' 
-                    : 'text-stone-300 hover:text-white hover:bg-white/[0.06]'
-                }`}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
+        {/* Desktop Navigation: centred between the logos and the account controls */}
+        <div className="hidden lg:flex flex-1 items-center justify-center gap-6">
+          {navLinks.map(link => (
+            <Link
+              key={link.label}
+              to={link.to}
+              className={`font-pixel text-sm tracking-[0.08em] uppercase whitespace-nowrap transition-colors px-shadow-sm ${isActive(link.to) ? 'text-sun' : 'text-cream/80 hover:text-sun'}`}
+            >
+              {isActive(link.to) && <span aria-hidden="true">▸ </span>}{link.label}
+            </Link>
+          ))}
         </div>
-        
-        {/* Right CTA / Auth controls */}
-        <div className="hidden lg:flex items-center gap-3">
+
+        {/* Desktop account controls, pinned right */}
+        <div className="hidden lg:flex items-center gap-4 shrink-0">
+          <DayNightToggle />
           {isAuthed ? (
-            <div className="flex items-center gap-3 pl-2 border-l border-white/[0.08]">
-              <Link 
-                to="/admin" 
-                className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-emerald-200 border border-emerald-500/25 transition-all shadow-sm shadow-emerald-500/10"
-              >
-                <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" />
+            <>
+              <Link to={dashboardPathFor(role)} className="px-btn px-btn--wood px-btn--sm">
+                <LayoutDashboard className="w-4 h-4" aria-hidden="true" />
                 Dashboard
               </Link>
-              <button 
-                onClick={handleLogout} 
-                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2.5 rounded-full text-rose-300 hover:text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all cursor-pointer"
-              >
-                <LogOut className="w-3.5 h-3.5" />
+              <button onClick={handleLogout} className="px-btn px-btn--danger px-btn--sm">
+                <LogOut className="w-4 h-4" aria-hidden="true" />
                 Logout
               </button>
-            </div>
+            </>
           ) : (
-            <div className="flex items-center gap-3">
-              <Link 
-                to="/login" 
-                className="text-xs font-semibold text-stone-200 hover:text-white px-4 py-2.5 rounded-full hover:bg-white/[0.06] transition-colors"
-              >
-                Log in
-              </Link>
-              <Link 
-                to="/register" 
-                className="group relative inline-flex items-center gap-1.5 text-xs font-bold px-5 py-2.5 rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-[#04110b] shadow-md shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 hover:scale-[1.02]"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#04110b]" />
+            <>
+              <Link to="/login" className="font-pixel text-sm tracking-[0.08em] uppercase whitespace-nowrap text-cream/80 hover:text-sun transition-colors px-shadow-sm">Log in</Link>
+              <Link to="/register" className="px-btn px-btn--grass px-btn--sm">
                 Join Initiative
               </Link>
-            </div>
+            </>
           )}
         </div>
 
-        {/* Mobile Toggle Button */}
-        <button 
-          className="lg:hidden p-2.5 rounded-xl text-stone-300 hover:text-emerald-400 hover:bg-white/[0.06] transition-all border border-white/[0.08] min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer" 
-          onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle menu"
-        >
-          {mobileOpen ? <X className="w-6 h-6 text-emerald-400" /> : <Menu className="w-6 h-6" />}
-        </button>
+        {/* Mobile: day/night + menu toggle */}
+        <div className="lg:hidden flex items-center gap-4">
+          <DayNightToggle compact />
+          <button
+            className="px-btn px-btn--wood px-btn--sm !p-2"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle menu"
+            aria-expanded={mobileOpen}
+          >
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu Dropdown */}
       {mobileOpen && (
-        <div className="lg:hidden bg-[#05110d]/98 backdrop-blur-2xl border-b border-emerald-500/20 px-4 sm:px-6 py-6 space-y-4 shadow-2xl transition-all max-h-[calc(100dvh-70px)] overflow-y-auto">
-          <div className="flex flex-col gap-1.5">
-            {navLinks.map(link => {
-              const isActive = location.pathname === link.to;
-              return (
-                <Link 
-                  key={link.label} 
-                  to={link.to} 
-                  onClick={() => setMobileOpen(false)} 
-                  className={`flex items-center py-3 px-4 rounded-xl text-sm font-semibold transition-all min-h-[44px] ${
-                    isActive
-                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                      : 'text-stone-300 hover:text-emerald-300 hover:bg-white/[0.04]'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
+        <div className="lg:hidden relative border-t-4 border-[#1a120b] px-6 py-6 space-y-4 max-h-[calc(100dvh-70px)] overflow-y-auto" style={texture('darkPlanks', 64)}>
+          <div className="absolute inset-0 bg-[#1c140c]/70 pointer-events-none" />
+          <div className="relative flex flex-col gap-1">
+            {navLinks.map(link => (
+              <Link
+                key={link.label}
+                to={link.to}
+                onClick={() => setMobileOpen(false)}
+                className={`font-pixel uppercase tracking-[0.1em] py-2 text-lg transition-colors ${isActive(link.to) ? 'text-sun' : 'text-cream/85 hover:text-sun'}`}
+              >
+                {isActive(link.to) ? '▸ ' : ''}{link.label}
+              </Link>
+            ))}
           </div>
-          
-          <div className="pt-4 mt-2 border-t border-white/[0.08] flex flex-col gap-2.5">
+
+          <div className="relative pt-6 mt-2 border-t-2 border-dashed border-cream/15 flex flex-col gap-5">
             {isAuthed ? (
               <>
-                <Link 
-                  to="/admin" 
-                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.12] text-white text-sm font-semibold border border-white/[0.08] min-h-[44px]" 
-                  onClick={() => setMobileOpen(false)}
-                >
-                  <LayoutDashboard className="w-4 h-4 text-emerald-400" />
+                <Link to={dashboardPathFor(role)} className="px-btn px-btn--wood w-full" onClick={() => setMobileOpen(false)}>
+                  <LayoutDashboard className="w-4 h-4" aria-hidden="true" />
                   Dashboard
                 </Link>
-                <button 
-                  onClick={handleLogout} 
-                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-red-500/10 text-red-300 text-sm font-semibold border border-red-500/20 min-h-[44px] cursor-pointer"
-                >
-                  <LogOut className="w-4 h-4" />
+                <button onClick={handleLogout} className="px-btn px-btn--danger w-full">
+                  <LogOut className="w-4 h-4" aria-hidden="true" />
                   Logout
                 </button>
               </>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <Link 
-                  to="/login" 
-                  className="text-stone-300 hover:text-white py-3 text-center text-sm font-semibold rounded-xl bg-white/[0.05] border border-white/[0.08] min-h-[44px] flex items-center justify-center" 
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Log in
-                </Link>
-                <Link 
-                  to="/register" 
-                  className="text-center py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-[#04110b] font-bold text-sm shadow-lg shadow-emerald-500/20 min-h-[44px] flex items-center justify-center" 
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Join Initiative
-                </Link>
-              </div>
+              <>
+                <Link to="/login" className="px-btn px-btn--stone w-full" onClick={() => setMobileOpen(false)}>Log in</Link>
+                <Link to="/register" className="px-btn px-btn--grass w-full" onClick={() => setMobileOpen(false)}>Join Initiative</Link>
+              </>
             )}
           </div>
         </div>

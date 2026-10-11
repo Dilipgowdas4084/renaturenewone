@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Leaf } from 'lucide-react';
+import { texture } from '../utils/pixelTextures';
 
 const InstagramIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" /></svg>
@@ -12,99 +12,81 @@ const TwitterIcon = ({ className }) => (
 );
 
 export default function Footer() {
-  return (
-    <footer className="relative bg-[#040f0b] border-t border-emerald-500/15 pt-14 sm:pt-20 pb-12 text-stone-300 overflow-hidden">
-      {/* Background ambient glow */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/4 h-64 bg-emerald-500/[0.06] blur-3xl pointer-events-none" />
+  const linkCls = 'hover:text-sun transition-colors';
+  const socialCls = 'p-2 px-panel--thin bg-[#2a2622] hover:bg-sun hover:text-bark transition-colors';
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 sm:gap-12 mb-12 sm:mb-16">
-          
+  return (
+    <footer className="pt-16 pb-8 text-cream/75 border-t-4 border-[#0e0c0a] font-body" style={texture('bedrock', 64)}>
+      <div className="container mx-auto px-6 max-w-7xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 mb-12">
+
           {/* Brand info */}
-          <div className="sm:col-span-2 space-y-4">
-            <Link to="/" className="inline-flex items-center gap-2.5 group">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400/20 to-teal-400/10 border border-emerald-400/30 flex items-center justify-center transition-transform group-hover:scale-105 shadow-md shadow-emerald-500/15">
-                <Leaf className="w-5 h-5 text-emerald-400" />
-              </div>
-              <span className="text-2xl font-bold text-white tracking-tight">
-                re<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">nature</span>
-              </span>
+          <div className="lg:col-span-2 space-y-4">
+            <Link to="/" className="inline-flex items-center">
+              <img
+                src="/logo.png"
+                alt="renature"
+                style={{ mixBlendMode: 'screen' }}
+                className="h-16 sm:h-20 w-auto object-contain"
+              />
             </Link>
-            <p className="text-stone-300 text-sm max-w-sm leading-relaxed">
+            <p className="text-cream/65 max-w-sm">
               Empowering student-led environmental technology, urban reforestation, and verified biodiversity stewardship on campus and beyond.
             </p>
-            <div className="pt-2 flex items-center gap-2 text-xs text-emerald-300/90 font-medium">
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" />
+            <div className="flex items-center gap-2 font-pixel text-sm tracking-[0.08em] text-sun/90">
+              <span className="inline-block w-2.5 h-2.5 bg-[#86c95e] animate-pulse" />
               Active Campus Movement · NMAMIT Student Guild
             </div>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-xs uppercase tracking-wider font-semibold text-emerald-400/90 mb-4">Platform</h4>
-            <ul className="space-y-3 text-sm">
-              <li><Link to="/" className="text-stone-300 hover:text-emerald-300 transition-colors inline-flex items-center gap-1 group py-1">Home</Link></li>
-              <li><Link to="/about" className="text-stone-300 hover:text-emerald-300 transition-colors inline-flex items-center gap-1 group py-1">About Us</Link></li>
-              <li><Link to="/events" className="text-stone-300 hover:text-emerald-300 transition-colors inline-flex items-center gap-1 group py-1">All Events</Link></li>
-              <li><Link to="/leaderboard" className="text-stone-300 hover:text-emerald-300 transition-colors inline-flex items-center gap-1 group py-1">Leaderboard</Link></li>
+            <h4 className="font-pixel text-sun tracking-[0.15em] uppercase mb-4">Platform</h4>
+            <ul className="space-y-3">
+              <li><Link to="/" className={linkCls}>Home</Link></li>
+              <li><Link to="/about" className={linkCls}>About Us</Link></li>
+              <li><Link to="/events" className={linkCls}>All Events</Link></li>
+              <li><Link to="/leaderboard" className={linkCls}>Leaderboard</Link></li>
             </ul>
           </div>
 
           {/* Resources */}
           <div>
-            <h4 className="text-xs uppercase tracking-wider font-semibold text-emerald-400/90 mb-4">Resources</h4>
-            <ul className="space-y-3 text-sm">
-              <li><Link to="/nature" className="text-stone-300 hover:text-emerald-300 transition-colors inline-flex items-center gap-1 group py-1">Nature Library</Link></li>
-              <li><Link to="/contact" className="text-stone-300 hover:text-emerald-300 transition-colors inline-flex items-center gap-1 group py-1">Contact Team</Link></li>
+            <h4 className="font-pixel text-sun tracking-[0.15em] uppercase mb-4">Resources</h4>
+            <ul className="space-y-3">
+              <li><Link to="/nature" className={linkCls}>Nature Library</Link></li>
+              <li><Link to="/contact" className={linkCls}>Contact Team</Link></li>
             </ul>
           </div>
 
           {/* Connect & Social */}
           <div>
-            <h4 className="text-xs uppercase tracking-wider font-semibold text-emerald-400/90 mb-4">Connect</h4>
-            <ul className="space-y-3 text-sm mb-6">
-              <li><Link to="/login" className="text-stone-300 hover:text-emerald-300 transition-colors font-medium py-1 inline-block">Member Sign In</Link></li>
-              <li><Link to="/register" className="text-emerald-400 hover:text-emerald-300 transition-colors font-semibold flex items-center gap-1 py-1">Join as Volunteer →</Link></li>
+            <h4 className="font-pixel text-sun tracking-[0.15em] uppercase mb-4">Connect</h4>
+            <ul className="space-y-3 mb-6">
+              <li><Link to="/login" className={linkCls}>Member Sign In</Link></li>
+              <li><Link to="/register" className="text-sun hover:text-cream transition-colors font-semibold">Join as Volunteer →</Link></li>
             </ul>
-            <div className="flex items-center gap-2.5">
-              <a 
-                href="https://instagram.com/renature_nmamit/" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                aria-label="Instagram"
-                className="w-11 h-11 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-emerald-500/10 hover:text-emerald-300 hover:border-emerald-500/30 transition-all duration-200 flex items-center justify-center min-h-[44px] min-w-[44px]"
-              >
-                <InstagramIcon className="w-4 h-4" />
+            <div className="flex items-center gap-4">
+              <a href="https://instagram.com/renature_nmamit/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className={socialCls}>
+                <InstagramIcon className="w-5 h-5" />
               </a>
-              <a 
-                href="https://linkedin.com/company/renature-nmamit/" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                aria-label="LinkedIn"
-                className="w-11 h-11 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-emerald-500/10 hover:text-emerald-300 hover:border-emerald-500/30 transition-all duration-200 flex items-center justify-center min-h-[44px] min-w-[44px]"
-              >
-                <LinkedinIcon className="w-4 h-4" />
+              <a href="https://linkedin.com/company/renature-nmamit/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className={socialCls}>
+                <LinkedinIcon className="w-5 h-5" />
               </a>
-              <a 
-                href="https://x.com/renature_club" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                aria-label="Twitter"
-                className="w-11 h-11 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-emerald-500/10 hover:text-emerald-300 hover:border-emerald-500/30 transition-all duration-200 flex items-center justify-center min-h-[44px] min-w-[44px]"
-              >
-                <TwitterIcon className="w-4 h-4" />
+              <a href="https://x.com/renature_club" target="_blank" rel="noopener noreferrer" aria-label="Twitter" className={socialCls}>
+                <TwitterIcon className="w-5 h-5" />
               </a>
             </div>
           </div>
-          
+
         </div>
 
         {/* Bottom copyright */}
-        <div className="pt-6 sm:pt-8 border-t border-white/[0.08] flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-stone-400 text-center md:text-left">
+        <div className="pt-8 border-t-2 border-dashed border-cream/10 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-cream/50 text-center md:text-left">
           <p>© 2026 renature Environmental Club. Crafted with 💚 for campus sustainability & biodiversity.</p>
           <div className="flex gap-6">
-            <span className="hover:text-stone-300 cursor-pointer transition-colors">Privacy Policy</span>
-            <span className="hover:text-stone-300 cursor-pointer transition-colors">Terms of Stewardship</span>
+            <span className="hover:text-sun cursor-pointer transition-colors">Privacy Policy</span>
+            <span className="hover:text-sun cursor-pointer transition-colors">Terms of Stewardship</span>
           </div>
         </div>
       </div>

@@ -12,10 +12,15 @@ const resultRoutes = require('./routes/resultRoutes');
 const leaderboardRoutes = require('./routes/leaderboardRoutes');
 const resourceRoutes = require('./routes/resourceRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const memoryPersistence = require('./utils/memoryPersistence');
+
+// Restore saved app data (users, events, registrations…) when running without PostgreSQL
+memoryPersistence.load();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/api', memoryPersistence.saveAfterWrites);
 
 // API Routes
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
@@ -45,7 +50,7 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('[Server Unhandled Rejection]:', reason);
 });
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 async function start() {
   const distDir = path.resolve(__dirname, '../dist');

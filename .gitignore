@@ -1,0 +1,4 @@
+node_modules
+
+# Website content saved by the admin page when no PostgreSQL is configured
+server/data/

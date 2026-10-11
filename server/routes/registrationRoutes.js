@@ -7,6 +7,9 @@ const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 router.post('/', registrationController.registerForEvent);
 router.get('/check/:eventId/:email', registrationController.checkDuplicate);
 
+// Logged-in member's own registrations
+router.get('/mine', verifyToken, registrationController.getMyRegistrations);
+
 // Admin routes
 router.get('/', verifyToken, requireRole('admin'), registrationController.getAllRegistrations);
 router.get('/event/:eventId', verifyToken, requireRole('admin'), registrationController.getEventRegistrations);

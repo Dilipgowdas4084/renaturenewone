@@ -1,0 +1,23 @@
+/* Contact village scene */
+.cv-door { transform-box: fill-box; transform-origin: left center; transition: transform 0.35s steps(4); }
+.cv-house:hover .cv-door, .cv-house:focus .cv-door { transform: scaleX(0.28); }
+.cv-label, .cv-glow { opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+.cv-hot:hover .cv-label, .cv-hot:hover .cv-glow, .cv-hot:focus .cv-label, .cv-hot:focus .cv-glow { opacity: 1; }
+.cv-hot { outline: none; cursor: pointer; }
+.cv-lid { transform-box: fill-box; transform-origin: left bottom; transition: transform 0.3s steps(3); }
+.cv-hot:hover .cv-lid, .cv-hot.is-open .cv-lid { transform: rotate(-70deg); }
+.cv-flag { transform-box: fill-box; transform-origin: bottom center; transition: transform 0.3s steps(3); }
+.cv-hot.is-open .cv-flag { transform: rotate(-90deg); }
+@keyframes cv-flicker { 0%, 100% { opacity: 1; } 30% { opacity: 0.65; } 60% { opacity: 0.9; } }
+.cv-flicker { animation: cv-flicker 1.4s steps(3) infinite; }
+@keyframes cv-rise { 0% { transform: translate(0, 0); opacity: 1; } 100% { transform: translate(var(--dx, 0px), -26px); opacity: 0; } }
+.cv-particle { animation: cv-rise 1.6s steps(8) infinite; animation-delay: var(--delay, 0s); }
+@keyframes cv-pop { 0% { transform: translateY(6px); opacity: 0; } 20%, 100% { transform: translateY(0); opacity: 1; } }
+.cv-pop { animation: cv-pop 0.5s steps(4) both; }
+.cv-slot { box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.35), inset -2px -2px 0 rgba(255, 255, 255, 0.25); }
+.cv-tag { opacity: 0; transform: translateY(4px); transition: opacity 0.2s, transform 0.2s; }
+.cv-obj:hover .cv-tag, .cv-obj:focus-within .cv-tag { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .cv-flicker, .cv-particle, .cv-pop { animation: none !important; }
+  .cv-door, .cv-lid, .cv-flag, .cv-tag, .cv-label { transition: none !important; }
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Globe, Save, CheckCircle2, Sparkles, User, 
-  Mail, Share2, Layers, Plus, Trash2 
+  Mail, Share2, Layers, Plus, Trash2, Users 
 } from 'lucide-react';
 import api from '../../utils/api';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -17,6 +17,8 @@ const DEFAULT_CONTENT = {
     president_dept: 'Biotechnology',
     vice_president_name: 'Shia Bangera',
     vice_president_dept: 'Mechanical Eng',
+    // Extra team members shown after the President & Vice President on the About page
+    team_members: [],
     benefits: [
       'Gain hands-on experience in environmental conservation & fieldwork',
       'Connect with like-minded peers, researchers, and ecology experts',
@@ -110,6 +112,36 @@ export default function AdminSiteContent() {
       about: {
         ...prev.about,
         benefits: prev.about.benefits.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  const addTeamMember = () => {
+    setContent(prev => ({
+      ...prev,
+      about: {
+        ...prev.about,
+        team_members: [...(prev.about.team_members || []), { position: '', name: '', dept: '' }]
+      }
+    }));
+  };
+
+  const updateTeamMember = (index, field, value) => {
+    setContent(prev => ({
+      ...prev,
+      about: {
+        ...prev.about,
+        team_members: (prev.about.team_members || []).map((m, i) => (i === index ? { ...m, [field]: value } : m))
+      }
+    }));
+  };
+
+  const removeTeamMember = (index) => {
+    setContent(prev => ({
+      ...prev,
+      about: {
+        ...prev.about,
+        team_members: (prev.about.team_members || []).filter((_, i) => i !== index)
       }
     }));
   };
@@ -253,11 +285,82 @@ export default function AdminSiteContent() {
             </div>
           </div>
 
+          {/* Team Members */}
+          <div className="p-6 rounded-2xl bg-[#091a14]/60 border border-white/[0.08] backdrop-blur-xl space-y-4">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Users className="w-4 h-4 text-emerald-400" />
+              Team Members
+            </h3>
+            <p className="text-xs text-stone-400">
+              Add more team members by position. They appear on the public About page under "Meet the Team", after the President and Vice President, in this order. Members without a name are not shown.
+            </p>
+
+            {(content.about.team_members || []).length === 0 ? (
+              <p className="text-xs text-stone-500 italic">No additional team members yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {(content.about.team_members || []).map((member, i) => (
+                  <div key={i} className="p-4 rounded-xl bg-black/40 border border-white/[0.06]">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">Member {i + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeTeamMember(i)}
+                        className="p-1.5 text-stone-500 hover:text-rose-400"
+                        title="Remove member"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] text-stone-400 font-semibold mb-1">Position</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Events Coordinator"
+                          value={member.position || ''}
+                          onChange={(e) => updateTeamMember(i, 'position', e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-stone-400 font-semibold mb-1">Full Name</label>
+                        <input
+                          type="text"
+                          value={member.name || ''}
+                          onChange={(e) => updateTeamMember(i, 'name', e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-stone-400 font-semibold mb-1">Department</label>
+                        <input
+                          type="text"
+                          value={member.dept || ''}
+                          onChange={(e) => updateTeamMember(i, 'dept', e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={addTeamMember}
+              className="px-4 py-2 rounded-xl bg-white/[0.04] hover:bg-emerald-500/20 border border-white/10 text-xs font-semibold text-emerald-300"
+            >
+              <Plus size={14} className="inline mr-1" /> Add Team Member
+            </button>
+          </div>
+
           {/* Story & Narrative */}
           <div className="p-6 rounded-2xl bg-[#091a14]/60 border border-white/[0.08] backdrop-blur-xl space-y-4">
             <h3 className="text-base font-bold text-white flex items-center gap-2">
               <Layers className="w-4 h-4 text-emerald-400" />
-              Story & Mission Narrative
+              Story & Narrative
             </h3>
 
             <div>

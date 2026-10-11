@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import PublicLayout from '../components/PublicLayout';
 import api from '../utils/api';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
-import EmptyState from '../components/ui/EmptyState';
-import { Trophy, Medal, Award, Filter, Info, Sparkles } from 'lucide-react';
+import { texture } from '../utils/pixelTextures';
+import { useDayNight } from '../context/DayNightContext';
 
 const DEPARTMENTS = ['Computer Science', 'Electronics', 'Mechanical', 'Civil', 'Information Science', 'Electrical', 'Biotechnology', 'Chemical', 'Aeronautical', 'Other'];
 const YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
@@ -21,7 +20,112 @@ const SAMPLE_DATA = [
   { rank: 10, full_name: 'Tanvi Kamath', department: 'Computer Science', total_points: 75, events_count: 2 },
 ];
 
+const SKIES = {
+  day: 'linear-gradient(#7ec8e3 0 30%, #a2d8ec 30% 60%, #c8e8ef 60%)',
+  night: 'linear-gradient(#1d2550 0 30%, #232d5c 30% 60%, #2a3567 60%)',
+};
+
+const PODIUM = [
+  { badge: '🥇', title: 'Explorer', block: '#e9c46a', blockHi: '#f6dc8e', blockLo: '#b8902f', height: 'h-32 sm:h-44' },
+  { badge: '🥈', title: 'Ranger', block: '#c9ccd1', blockHi: '#e4e6ea', blockLo: '#8f949b', height: 'h-24 sm:h-32' },
+  { badge: '🥉', title: 'Trailblazer', block: '#c77b45', blockHi: '#e09a66', blockLo: '#8f5128', height: 'h-16 sm:h-24' },
+];
+
+const HAIR = ['#3b2616', '#6b4226', '#1f1a17', '#a86b32', '#d9b06a', '#5a2e1c'];
+const SKIN = ['#e8b88a', '#c68c5e', '#f1cfa6', '#a86f45', '#d9a57a'];
+const SHIRT = ['#3f7d3a', '#3b6ea5', '#a8412f', '#7a4fa0', '#c77b45', '#2f7f7a'];
+
+function hash(str = '') {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+// Deterministic 10×10 pixel head generated from the player's name.
+function PixelHead({ name, crown = false, className = '' }) {
+  const h = hash(name);
+  const hair = HAIR[h % HAIR.length];
+  const skin = SKIN[(h >>> 3) % SKIN.length];
+  const shirt = SHIRT[(h >>> 6) % SHIRT.length];
+  return (
+    <svg viewBox="0 0 10 12" className={className} shapeRendering="crispEdges" aria-hidden="true">
+      {crown && (
+        <g fill="#f2c94c">
+          <rect x={2} y={0} width={6} height={2} />
+          <rect x={2} y={-1} width={1} height={1} />
+          <rect x={4.5} y={-1} width={1} height={1} />
+          <rect x={7} y={-1} width={1} height={1} />
+          <rect x={4.5} y={0.5} width={1} height={1} fill="#e05a5a" />
+        </g>
+      )}
+      <rect x={1} y={2} width={8} height={7} fill={skin} />
+      <rect x={1} y={2} width={8} height={2} fill={hair} />
+      <rect x={1} y={4} width={1} height={2} fill={hair} />
+      <rect x={8} y={4} width={1} height={2} fill={hair} />
+      <rect x={3} y={5} width={1} height={1} fill="#2b1d12" />
+      <rect x={6} y={5} width={1} height={1} fill="#2b1d12" />
+      <rect x={4} y={7} width={2} height={1} fill="#b86f52" />
+      <rect x={0} y={9} width={10} height={3} fill={shirt} />
+    </svg>
+  );
+}
+
+function HillsStrip({ night }) {
+  const colors = night
+    ? { far: '#3b5446', near: '#2c4633', tree: '#223a2a' }
+    : { far: '#a3c48c', near: '#6fa35a', tree: '#4f8a45' };
+  const far = [30, 26, 22, 22, 18, 22, 26, 30, 28, 24, 20, 16, 14, 18, 22, 26, 28, 24, 20, 18, 22, 26, 30, 32, 28, 24, 20, 22, 26, 30];
+  const near = Array.from({ length: 60 }, (_, i) => 40 + Math.round((Math.sin(i * 0.35) * 5 + Math.sin(i * 0.12 + 1) * 4) / 2) * 2);
+  const path = (hs, step, base) => `M0 ${base}` + hs.map((y, i) => ` V${y} H${(i + 1) * step}`).join('') + ` V${base} Z`;
+  return (
+    <svg viewBox="0 0 480 60" preserveAspectRatio="xMidYMax slice" className="block w-full h-16 sm:h-24" shapeRendering="crispEdges" aria-hidden="true">
+      <path d={path(far, 16, 60)} fill={colors.far} />
+      <path d={path(near, 8, 60)} fill={colors.near} />
+      {[3, 9, 16, 24, 31, 39, 46, 53].map(i => (
+        <rect key={i} x={i * 8} y={near[i] - 6} width={6} height={6} fill={colors.tree} />
+      ))}
+      <rect x={0} y={56} width={480} height={4} fill="#5fa843" />
+      <rect x={0} y={56} width={480} height={1} fill="#86c95e" />
+    </svg>
+  );
+}
+
+function PodiumSpot({ player, place }) {
+  const style = PODIUM[place];
+  return (
+    <div className="flex flex-col items-center min-w-0">
+      <div className="flex flex-col items-center text-center mb-3 px-1 min-w-0 w-full">
+        <div className={`px-panel--thin bg-[#dff1f7] p-1.5 mb-3 ${place === 0 ? 'w-16 h-20 sm:w-24 sm:h-28' : 'w-12 h-16 sm:w-18 sm:h-22'}`}>
+          <PixelHead name={player.full_name} crown={place === 0} className="w-full h-full overflow-visible" />
+        </div>
+        <span className="font-pixel text-[10px] sm:text-xs tracking-[0.1em] uppercase px-2 py-1 mb-2 bg-bark text-sun whitespace-nowrap">
+          <span aria-hidden="true">{style.badge}</span> {style.title}
+        </span>
+        <div className="w-full px-panel--thin px-2 py-2 sm:px-3" style={texture('parchment', 48)}>
+          <h3 className={`font-bold text-bark leading-tight truncate w-full ${place === 0 ? 'text-base sm:text-xl' : 'text-sm sm:text-base'}`} title={player.full_name}>
+            {player.full_name}
+          </h3>
+          {player.department && <p className="text-bark/65 text-[11px] sm:text-xs truncate w-full">{player.department}</p>}
+          <p className={`font-num text-forest mt-1.5 ${place === 0 ? 'text-sm sm:text-lg' : 'text-[10px] sm:text-sm'}`}>
+            {Number(player.total_points).toLocaleString()}<span className="font-pixel text-xs sm:text-sm ml-1">XP</span>
+          </p>
+        </div>
+      </div>
+      <div
+        className={`w-full ${style.height} flex items-start justify-center pt-2 sm:pt-3`}
+        style={{
+          backgroundColor: style.block,
+          boxShadow: `inset 0 6px 0 ${style.blockHi}, inset -6px -6px 0 ${style.blockLo}, 0 0 0 4px #2b1d12`,
+        }}
+      >
+        <span className="font-num text-2xl sm:text-4xl text-bark/80" style={{ textShadow: `3px 3px 0 ${style.blockHi}` }}>{place + 1}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function Leaderboard() {
+  const { night } = useDayNight();
   const [leaders, setLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -43,7 +147,7 @@ export default function Leaderboard() {
       if (tab === 'year') params.year = year;
 
       const res = await api.get('/leaderboard', { params });
-      if (res.data && res.data.length > 0) {
+      if (Array.isArray(res.data) && res.data.length > 0) {
         setLeaders(res.data);
       } else {
         setLeaders(SAMPLE_DATA);
@@ -59,181 +163,140 @@ export default function Leaderboard() {
 
   const top3 = leaders.slice(0, 3);
   const rest = leaders.slice(3);
+  const maxXp = Math.max(1, ...leaders.map(l => Number(l.total_points) || 0));
 
   return (
     <PublicLayout>
-      <div className="min-h-screen bg-[#040d0a] text-stone-200 pb-24 selection:bg-emerald-500/20 selection:text-emerald-300">
-        
-        {/* ─── Hero Section ─── */}
-        <section className="relative pt-32 pb-16 px-6 text-center overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(16,185,129,0.08)_0%,_transparent_60%)]" />
-          
-          <div className="relative z-10 max-w-3xl mx-auto">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center mx-auto mb-6 text-emerald-400 shadow-lg shadow-emerald-500/10">
-              <Trophy className="w-8 h-8" />
-            </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white mb-6 tracking-tight">
-              Eco-Points <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">Leaderboard</span>
-            </h1>
-            <p className="text-base sm:text-lg text-stone-300 max-w-2xl mx-auto leading-relaxed">
-              Recognizing dedicated student stewards, volunteers, and departments leading environmental impact across campus.
-            </p>
-          </div>
-        </section>
+      <div className="relative min-h-screen transition-[background] duration-700" style={{ background: night ? SKIES.night : SKIES.day }}>
 
-        {/* ─── Filters Bar ─── */}
-        <section className="max-w-5xl mx-auto px-4 sm:px-6 mb-8 sm:mb-12 relative z-10">
-          <div className="flex flex-col md:flex-row gap-3 sm:gap-4 items-center justify-between bg-[#091a14]/80 border border-white/[0.08] rounded-2xl p-2.5 backdrop-blur-xl shadow-xl shadow-black/20">
-            <div className="flex w-full md:w-auto p-1 bg-[#05110d] rounded-xl border border-white/[0.04]">
+        {/* ─── Title ─── */}
+        <section className="relative pt-10 sm:pt-14 pb-6 px-6 text-center">
+          <h1 className="px-title text-cream text-3xl sm:text-5xl lg:text-6xl tracking-wide leading-tight">
+            RENATURE LEADERBOARD
+          </h1>
+          <div className="mt-5 inline-block px-panel px-panel--thin px-4 py-2" style={texture('planks', 48)}>
+            <p className="font-pixel text-sun text-sm sm:text-base tracking-[0.3em] px-shadow-sm">★ TOP EXPLORERS ★</p>
+          </div>
+          <p
+            className={`mt-5 font-semibold max-w-2xl mx-auto text-base sm:text-lg ${night ? 'text-cream' : 'text-deep'}`}
+            style={{ textShadow: night ? '0 2px 0 rgba(0,0,0,0.45)' : '0 1px 0 rgba(255,255,255,0.5)' }}
+          >
+            Recognizing dedicated student stewards, volunteers, and departments leading environmental impact across campus.
+          </p>
+
+          {/* tabs */}
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-5">
+            <div className="flex flex-wrap justify-center gap-4" role="tablist" aria-label="Leaderboard view">
               {['overall', 'department', 'year'].map(t => (
                 <button
                   key={t}
+                  role="tab"
+                  aria-selected={tab === t}
                   onClick={() => setTab(t)}
-                  className={`flex-1 md:flex-none px-3.5 sm:px-5 py-2.5 min-h-[44px] text-xs font-semibold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center cursor-pointer ${
-                    tab === t 
-                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm' 
-                      : 'text-stone-400 hover:text-stone-200'
-                  }`}
+                  className={`px-btn px-btn--sm ${tab === t ? 'px-btn--grass' : 'px-btn--stone'}`}
                 >
                   By {t}
                 </button>
               ))}
             </div>
-            
-            <div className="flex items-center gap-3 w-full md:w-auto px-1 sm:px-2">
-              {tab === 'department' && (
-                <select 
-                  value={department} 
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full md:w-auto bg-[#05110d] border border-white/[0.08] rounded-xl py-2.5 px-4 text-xs font-medium text-stone-200 focus:outline-none focus:border-emerald-500/50 transition-all cursor-pointer min-h-[44px]"
-                >
-                  {DEPARTMENTS.map(d => <option key={d} value={d} className="bg-[#05110d] text-stone-200">{d}</option>)}
-                </select>
-              )}
-              {tab === 'year' && (
-                <select 
-                  value={year} 
-                  onChange={(e) => setYear(e.target.value)}
-                  className="w-full md:w-auto bg-[#05110d] border border-white/[0.08] rounded-xl py-2.5 px-4 text-xs font-medium text-stone-200 focus:outline-none focus:border-emerald-500/50 transition-all cursor-pointer min-h-[44px]"
-                >
-                  {YEARS.map(y => <option key={y} value={y} className="bg-[#05110d] text-stone-200">{y}</option>)}
-                </select>
-              )}
-            </div>
+            {tab === 'department' && (
+              <select value={department} onChange={(e) => setDepartment(e.target.value)} className="px-input cursor-pointer" aria-label="Department">
+                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            )}
+            {tab === 'year' && (
+              <select value={year} onChange={(e) => setYear(e.target.value)} className="px-input cursor-pointer" aria-label="Year">
+                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            )}
           </div>
         </section>
 
-        {/* ─── Leaderboard Content ─── */}
-        <section className="max-w-5xl mx-auto px-4 sm:px-6">
-          {error && (
-            <div className="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center gap-2">
-              <Sparkles className="w-4 h-4 shrink-0" />
-              <span>Displaying campus steward rankings and points distribution.</span>
-            </div>
-          )}
+        <HillsStrip night={night} />
 
-          {loading ? (
-            <div className="py-20 flex justify-center">
-              <LoadingSpinner size="lg" message="Calculating verified points..." />
-            </div>
-          ) : leaders.length === 0 ? (
-            <EmptyState 
-              title="No data available" 
-              description="No rankings found for this category yet. Check back after upcoming drives are scored."
-              icon={Award}
-            />
-          ) : (
-            <>
-              {/* Top 3 Podiums */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12 items-end">
-                
-                {/* Rank 2 (Silver) */}
-                {top3[1] && (
-                  <div className="order-2 md:order-1 flex flex-col items-center p-5 sm:p-7 rounded-3xl bg-gradient-to-b from-stone-300/10 to-[#071712]/70 border border-stone-400/25 backdrop-blur-xl relative shadow-xl shadow-black/30 group hover:-translate-y-1 transition-all">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-stone-300/10 border border-stone-300/25 flex items-center justify-center mb-3 sm:mb-4">
-                      <Medal className="w-7 h-7 sm:w-8 sm:h-8 text-stone-300 drop-shadow-[0_0_12px_rgba(214,211,209,0.4)]" />
-                    </div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-1">Rank 02 · Silver</span>
-                    <h3 className="text-lg sm:text-xl font-bold text-white mb-1 text-center">{top3[1].full_name}</h3>
-                    <p className="text-stone-400 text-xs mb-3 sm:mb-4 text-center">{top3[1].department}</p>
-                    <div className="text-2xl sm:text-3xl font-extrabold text-stone-200">
-                      {top3[1].total_points} <span className="text-xs font-semibold text-stone-400">pts</span>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Rank 1 (Gold) */}
-                {top3[0] && (
-                  <div className="order-1 md:order-2 flex flex-col items-center p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-amber-400/15 via-[#0b211a]/80 to-[#071712]/90 border border-amber-400/35 backdrop-blur-2xl relative md:-translate-y-4 shadow-2xl shadow-amber-400/10 group hover:-translate-y-5 transition-all">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center mb-3 sm:mb-4">
-                      <Trophy className="w-8 h-8 sm:w-9 sm:h-9 text-amber-300 drop-shadow-[0_0_15px_rgba(251,191,36,0.6)]" />
-                    </div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-amber-300 mb-1">Champion · Gold</span>
-                    <h3 className="text-xl sm:text-2xl font-bold text-white mb-1 text-center">{top3[0].full_name}</h3>
-                    <p className="text-amber-200/80 text-xs mb-4 sm:mb-5 text-center font-medium">{top3[0].department}</p>
-                    <div className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-300 to-yellow-400">
-                      {top3[0].total_points} <span className="text-xs sm:text-sm font-semibold text-amber-300/70">pts</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Rank 3 (Bronze) */}
-                {top3[2] && (
-                  <div className="order-3 md:order-3 flex flex-col items-center p-5 sm:p-7 rounded-3xl bg-gradient-to-b from-amber-700/10 to-[#071712]/70 border border-amber-600/25 backdrop-blur-xl relative shadow-xl shadow-black/30 group hover:-translate-y-1 transition-all">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-700/10 border border-amber-600/25 flex items-center justify-center mb-3 sm:mb-4">
-                      <Medal className="w-7 h-7 sm:w-8 sm:h-8 text-amber-600 drop-shadow-[0_0_12px_rgba(217,119,6,0.4)]" />
-                    </div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-amber-600 mb-1">Rank 03 · Bronze</span>
-                    <h3 className="text-lg sm:text-xl font-bold text-white mb-1 text-center">{top3[2].full_name}</h3>
-                    <p className="text-stone-400 text-xs mb-3 sm:mb-4 text-center">{top3[2].department}</p>
-                    <div className="text-2xl sm:text-3xl font-extrabold text-amber-500">
-                      {top3[2].total_points} <span className="text-xs font-semibold text-amber-600">pts</span>
-                    </div>
-                  </div>
-                )}
-
+        {/* ─── Podium on the meadow ─── */}
+        <section className="relative px-4 sm:px-6 pt-8 sm:pt-10 pb-0" style={texture('grass', 64)}>
+          {night && <div className="absolute inset-0 bg-[#0a0f2a]/40 pointer-events-none" />}
+          <div className="relative max-w-4xl mx-auto">
+            {error && (
+              <div className="mb-8 px-panel px-panel--thin p-4 bg-ember text-bark text-center font-semibold">
+                Displaying campus steward rankings and points distribution.
               </div>
+            )}
 
-              {/* Leaderboard Table */}
-              {rest.length > 0 && (
-                <div className="rounded-3xl bg-[#091a14]/60 border border-white/[0.08] overflow-hidden backdrop-blur-xl shadow-xl shadow-black/30">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-white/[0.08] text-xs uppercase tracking-wider text-stone-400 bg-[#05110d]/90">
-                          <th className="px-3 sm:px-6 py-3.5 sm:py-4 font-semibold w-12 sm:w-16 text-center">Rank</th>
-                          <th className="px-3 sm:px-6 py-3.5 sm:py-4 font-semibold">Student Name</th>
-                          <th className="px-6 py-4 font-semibold hidden md:table-cell">Department</th>
-                          <th className="px-6 py-4 font-semibold text-right hidden sm:table-cell">Drives</th>
-                          <th className="px-3 sm:px-6 py-3.5 sm:py-4 font-semibold text-right text-emerald-400">Points</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/[0.04]">
-                        {rest.map((student, idx) => (
-                          <tr key={idx} className="hover:bg-white/[0.02] transition-colors group">
-                            <td className="px-3 sm:px-6 py-3.5 sm:py-4 text-center font-bold text-stone-400 text-xs sm:text-sm">#{student.rank}</td>
-                            <td className="px-3 sm:px-6 py-3.5 sm:py-4 font-medium text-stone-200 group-hover:text-white">
-                              <span className="text-xs sm:text-sm font-semibold">{student.full_name}</span>
-                              <div className="md:hidden text-[11px] text-stone-400 mt-0.5">
-                                {student.department} <span className="sm:hidden">· {student.events_count} drives</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-stone-400 hidden md:table-cell text-xs font-medium">{student.department}</td>
-                            <td className="px-6 py-4 text-stone-300 text-right text-xs font-semibold hidden sm:table-cell">{student.events_count}</td>
-                            <td className="px-3 sm:px-6 py-3.5 sm:py-4 font-extrabold text-emerald-400 text-right text-xs sm:text-sm">
-                              {student.total_points} <span className="text-[10px] sm:text-xs font-normal text-emerald-500/70">pts</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+            {loading ? (
+              <div className="py-20 flex flex-col items-center gap-4" role="status">
+                <div className="flex gap-2" aria-hidden="true">
+                  {[0, 1, 2].map(i => <span key={i} className="w-4 h-4 bg-sun px-bounce" style={{ animationDelay: `${i * 0.2}s` }} />)}
                 </div>
-              )}
-            </>
-          )}
+                <p className="font-pixel text-cream tracking-[0.2em] px-shadow-sm uppercase">Calculating verified points…</p>
+              </div>
+            ) : leaders.length === 0 ? (
+              <div className="max-w-md mx-auto mb-12 px-panel p-8 text-center" style={texture('parchment', 64)}>
+                <p className="text-4xl mb-3" aria-hidden="true">🏆</p>
+                <h2 className="font-pixel text-2xl text-bark mb-2">NO DATA AVAILABLE</h2>
+                <p className="text-bark/75">No rankings found for this category yet. Check back after upcoming drives are scored.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3 sm:gap-6 items-end">
+                <div>{top3[1] && <PodiumSpot player={top3[1]} place={1} />}</div>
+                <div>{top3[0] && <PodiumSpot player={top3[0]} place={0} />}</div>
+                <div>{top3[2] && <PodiumSpot player={top3[2]} place={2} />}</div>
+              </div>
+            )}
+          </div>
         </section>
 
+        {/* ─── The rest, underground ─── */}
+        <section className="relative px-4 sm:px-6 pt-12 pb-24 border-t-8 border-[#5fa843]" style={texture('dirt', 64)}>
+          {!loading && rest.length > 0 && (
+            <div className="max-w-4xl mx-auto px-panel overflow-hidden" style={texture('parchment', 64)}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-bark text-sun font-pixel text-xs sm:text-sm tracking-[0.15em]">
+                      <th scope="col" className="px-4 sm:px-6 py-3 w-16 text-center">#</th>
+                      <th scope="col" className="px-4 sm:px-6 py-3">EXPLORER</th>
+                      <th scope="col" className="px-4 sm:px-6 py-3 text-right w-44 sm:w-72">XP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rest.map((student, idx) => {
+                      const xp = Number(student.total_points) || 0;
+                      return (
+                        <tr key={idx} className="border-t-2 border-dashed border-earth/25 hover:bg-sun/15 transition-colors">
+                          <td className="px-4 sm:px-6 py-3 text-center font-num text-sm text-earth">{student.rank}</td>
+                          <td className="px-4 sm:px-6 py-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="w-8 h-9 shrink-0 px-panel--thin bg-[#dff1f7] p-0.5">
+                                <PixelHead name={student.full_name} className="w-full h-full" />
+                              </span>
+                              <div className="min-w-0">
+                                <p className="font-bold text-bark truncate">{student.full_name}</p>
+                                <p className="text-xs text-bark/60 truncate">
+                                  {student.department}{student.department && student.events_count != null ? ' · ' : ''}
+                                  {student.events_count != null && `${student.events_count} drive${student.events_count === 1 ? '' : 's'}`}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 sm:px-6 py-3">
+                            <div className="flex flex-col items-end gap-1.5">
+                              <span className="font-num text-[11px] sm:text-xs text-bark">{xp.toLocaleString()}<span className="font-pixel text-sm ml-1">XP</span></span>
+                              <div className="w-full h-3 px-xp-track" role="img" aria-label={`${xp} of ${maxXp} XP`}>
+                                <div className="h-full px-xp-fill" style={{ width: `${Math.max(4, (xp / maxXp) * 100)}%` }} />
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     </PublicLayout>
   );

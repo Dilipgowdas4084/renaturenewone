@@ -19,8 +19,10 @@ exports.listEvents = async (req, res) => {
     if (status && status !== 'all') {
       params.push(status);
       query += ` AND e.status = $${params.length}`;
-    } else if (!status && !req.headers.authorization) {
-      query += ` AND e.status = 'published'`;
+    } else if (!status) {
+      // Public listing: everything except drafts, whether or not the visitor is logged in.
+      // (The admin events page asks for status=all to include drafts.)
+      query += ` AND e.status <> 'draft'`;
     }
     
     if (search) {

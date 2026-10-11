@@ -1,5 +1,6 @@
 const pool = require('../db');
 const bcrypt = require('bcryptjs');
+const siteContentStore = require('../utils/siteContentStore');
 
 exports.getStats = async (req, res) => {
   try {
@@ -330,11 +331,7 @@ exports.deleteLeaderboardEntry = async (req, res) => {
 
 exports.getSiteContent = async (req, res) => {
   try {
-    const memoryDb = pool.memoryDb;
-    if (memoryDb && memoryDb.site_content) {
-      return res.json(memoryDb.site_content);
-    }
-    res.json({});
+    res.json(await siteContentStore.getContent());
   } catch (err) {
     console.error('Error getting site content:', err);
     res.status(500).json({ error: 'Server error' });
@@ -343,27 +340,8 @@ exports.getSiteContent = async (req, res) => {
 
 exports.updateSiteContent = async (req, res) => {
   try {
-    const memoryDb = pool.memoryDb;
-    if (memoryDb) {
-      memoryDb.site_content = {
-        ...memoryDb.site_content,
-        ...req.body,
-        about: {
-          ...(memoryDb.site_content ? memoryDb.site_content.about : {}),
-          ...(req.body.about || {})
-        },
-        contact: {
-          ...(memoryDb.site_content ? memoryDb.site_content.contact : {}),
-          ...(req.body.contact || {})
-        },
-        home: {
-          ...(memoryDb.site_content ? memoryDb.site_content.home : {}),
-          ...(req.body.home || {})
-        }
-      };
-      return res.json({ success: true, content: memoryDb.site_content });
-    }
-    res.json({ success: true });
+    const content = await siteContentStore.updateContent(req.body || {});
+    res.json({ success: true, content });
   } catch (err) {
     console.error('Error updating site content:', err);
     res.status(500).json({ error: 'Server error' });

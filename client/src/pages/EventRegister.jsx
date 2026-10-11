@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import PublicLayout from '../components/PublicLayout';
 import api from '../utils/api';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { ArrowLeft, CheckCircle2, AlertCircle, Sparkles, Send } from 'lucide-react';
+import { isLoggedIn, getCurrentRole, dashboardPathFor } from '../utils/auth';
+import { texture } from '../utils/pixelTextures';
 
 const DEPARTMENTS = ['Computer Science', 'Electronics', 'Mechanical', 'Civil', 'Information Science', 'Electrical', 'Biotechnology', 'Chemical', 'Aeronautical', 'Other'];
 const YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
@@ -45,6 +45,24 @@ export default function EventRegister() {
     fetchEvent();
   }, [id]);
 
+  // Logged-in members: pre-fill from their account so the registration shows on their dashboard
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+    api.get('/auth/me')
+      .then(res => {
+        const u = res.data?.user;
+        if (!u) return;
+        setFormData(prev => ({
+          ...prev,
+          full_name: prev.full_name || u.name || '',
+          email: prev.email || u.email || '',
+          student_id: prev.student_id || u.usn || '',
+          phone: prev.phone || u.phone || '',
+        }));
+      })
+      .catch(() => { /* not critical — the form can still be filled in by hand */ });
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -81,201 +99,133 @@ export default function EventRegister() {
       setRefId(res.data.reference_id || 'REG-' + Math.floor(Math.random() * 1000000));
       setIsSuccess(true);
     } catch (err) {
-      setSubmitError(err.response?.data?.message || 'Registration failed. Please try again later.');
+      setSubmitError(err.response?.data?.error || err.response?.data?.message || 'Registration failed. Please try again later.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const wrap = (children) => (
+    <PublicLayout>
+      <div className="relative min-h-screen pb-24" style={texture('darkPlanks', 72)}>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/20 to-black/50 pointer-events-none" />
+        <div className="relative max-w-3xl mx-auto px-6 pt-10 sm:pt-14">{children}</div>
+      </div>
+    </PublicLayout>
+  );
+
+  const labelCls = 'block font-pixel text-xs tracking-[0.15em] uppercase text-earth mb-2';
+
   if (loading) {
-    return (
-      <PublicLayout>
-        <div className="min-h-screen bg-[#040d0a] flex justify-center items-center pt-24">
-          <LoadingSpinner size="lg" message="Preparing registration form..." />
+    return wrap(
+      <div className="py-24 flex flex-col items-center gap-4" role="status">
+        <div className="flex gap-2" aria-hidden="true">
+          {[0, 1, 2].map(i => <span key={i} className="w-4 h-4 bg-sun px-bounce" style={{ animationDelay: `${i * 0.2}s` }} />)}
         </div>
-      </PublicLayout>
+        <p className="font-pixel text-cream tracking-[0.2em] px-shadow-sm">PREPARING YOUR QUEST…</p>
+      </div>
     );
   }
 
   if (isSuccess) {
-    return (
-      <PublicLayout>
-        <div className="min-h-screen bg-[#040d0a] flex items-center justify-center p-6 selection:bg-emerald-500/20 selection:text-emerald-300">
-          <div className="max-w-md w-full rounded-3xl bg-[#081813]/90 border border-emerald-500/30 p-8 text-center backdrop-blur-2xl shadow-2xl shadow-black/80 animate-in fade-in duration-300">
-            <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl flex items-center justify-center mx-auto mb-6 text-emerald-400">
-              <CheckCircle2 className="w-10 h-10" />
-            </div>
-            
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-2">Registration Confirmed!</h2>
-            <p className="text-stone-300 text-sm mb-6 leading-relaxed">
-              You are officially registered for <strong className="text-emerald-300">{eventTitle}</strong>.
-            </p>
-            
-            <div className="bg-[#040d0a] border border-white/[0.08] rounded-2xl p-4 mb-8">
-              <p className="text-[11px] text-stone-400 uppercase tracking-widest font-semibold mb-1">Registration Reference</p>
-              <p className="text-2xl font-mono font-bold text-emerald-400 tracking-wider">{refId}</p>
-              <p className="text-[11px] text-stone-400 mt-1">Please preserve this ID for field check-in.</p>
-            </div>
-            
-            <Link 
-              to="/events"
-              className="block w-full py-3.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.12] text-white text-sm font-semibold transition-all border border-white/[0.08]"
-            >
-              Return to Events
-            </Link>
+    return wrap(
+      <div className="max-w-lg mx-auto mt-6">
+        <div className="px-panel p-8 sm:p-10 text-center" style={texture('parchment', 64)}>
+          <div className="w-16 h-16 mx-auto mb-5 bg-forest px-panel--thin flex items-center justify-center text-3xl" aria-hidden="true">🏆</div>
+          <p className="font-pixel text-forest text-sm tracking-[0.3em] mb-1">QUEST ACCEPTED!</p>
+          <h1 className="font-pixel text-2xl sm:text-3xl uppercase text-bark mb-3">You're In</h1>
+          <p className="text-bark/80 mb-6 leading-relaxed">
+            You are officially registered for <strong className="text-bark">{eventTitle}</strong>.
+          </p>
+
+          <div className="px-panel--thin p-4 mb-8 bg-bark">
+            <p className="font-pixel text-xs uppercase tracking-[0.2em] text-sun mb-2">Quest Reference</p>
+            <p className="font-num text-sm sm:text-base text-cream break-all">{refId}</p>
+            <p className="text-xs text-cream/70 mt-2">Keep this ID for check-in on the day.</p>
+          </div>
+
+          <div className="flex flex-col gap-5">
+            <Link to="/events" className="px-btn px-btn--wood w-full">◂ Back to Quest Board</Link>
+            {isLoggedIn() && (
+              <Link to={dashboardPathFor(getCurrentRole())} className="px-btn px-btn--grass w-full">
+                View My Dashboard
+              </Link>
+            )}
           </div>
         </div>
-      </PublicLayout>
+      </div>
     );
   }
 
-  return (
-    <PublicLayout>
-      <div className="min-h-screen bg-[#040d0a] text-stone-200 py-16 sm:py-24 px-4 sm:px-6 selection:bg-emerald-500/20 selection:text-emerald-300">
-        <div className="max-w-2xl mx-auto">
-          
-          <Link 
-            to={`/events/${id}`} 
-            className="inline-flex items-center gap-2 text-stone-400 hover:text-emerald-300 transition-colors mb-6 sm:mb-8 text-xs font-semibold uppercase tracking-wider bg-white/[0.04] px-3.5 py-2 rounded-full border border-white/[0.06] min-h-[44px]"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Event Details
-          </Link>
-          
-          <div className="mb-6 sm:mb-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-2">
-              <Sparkles className="w-3.5 h-3.5" />
-              Event Registration
-            </div>
-            <h1 className="text-2xl sm:text-4xl font-extrabold text-white mb-2 tracking-tight">Confirm Your Spot</h1>
-            <p className="text-stone-400 text-sm sm:text-base">{eventTitle}</p>
+  return wrap(
+    <>
+      <Link to={`/events/${id}`} className="px-btn px-btn--stone px-btn--sm mb-8">◂ Back to Quest Details</Link>
+
+      {/* Title sign */}
+      <div className="mb-10">
+        <div className="inline-block max-w-full px-panel px-panel--thin px-5 sm:px-7 py-4" style={texture('planks', 48)}>
+          <p className="font-pixel text-sun text-xs sm:text-sm tracking-[0.3em] mb-1">ACCEPT QUEST</p>
+          <h1 className="px-title text-cream text-3xl sm:text-4xl tracking-wide leading-tight break-words">{eventTitle || 'Quest Sign-up'}</h1>
+        </div>
+        <p className="mt-5 text-cream/85">Fill in your details to join this quest.</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="px-panel p-6 sm:p-8 flex flex-col gap-6" style={texture('parchment', 64)}>
+        <h2 className="font-pixel text-2xl uppercase text-bark">Quest Contract</h2>
+
+        {submitError && (
+          <div className="px-4 py-3 px-panel--thin bg-[#9c3d33] text-cream text-sm font-semibold" role="alert">⚠ {submitError}</div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div>
+            <label htmlFor="reg-full_name" className={labelCls}>Full Name *</label>
+            <input id="reg-full_name" type="text" name="full_name" required value={formData.full_name} onChange={handleChange} className="px-input w-full" placeholder="e.g. Alex Morgan" />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 bg-[#091a14]/70 border border-white/[0.08] p-5 sm:p-8 md:p-10 rounded-3xl backdrop-blur-2xl shadow-xl shadow-black/40">
-            
-            {submitError && (
-              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-                <p className="text-rose-300 text-xs">{submitError}</p>
-              </div>
-            )}
+          <div>
+            <label htmlFor="reg-student_id" className={labelCls}>Student ID / Roll No *</label>
+            <input id="reg-student_id" type="text" name="student_id" required value={formData.student_id} onChange={handleChange} className="px-input w-full uppercase" placeholder="4NM22CS001" />
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-              {/* Full Name */}
-              <div className="space-y-1.5 sm:space-y-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300">Full Name *</label>
-                <input 
-                  type="text" 
-                  name="full_name"
-                  required
-                  value={formData.full_name}
-                  onChange={handleChange}
-                  className="w-full bg-[#05110d] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all min-h-[44px]"
-                  placeholder="e.g. Alex Morgan"
-                />
-              </div>
+          <div>
+            <label htmlFor="reg-email" className={labelCls}>College Email *</label>
+            <input id="reg-email" type="email" name="email" required value={formData.email} onChange={handleChange} onBlur={handleEmailBlur} className="px-input w-full" placeholder="alex@nmamit.in" />
+            {emailWarning && <p className="text-sm font-semibold text-[#9c3d33] mt-2">{emailWarning}</p>}
+            {emailCheckLoading && <p className="text-xs text-bark/60 mt-2">Checking eligibility...</p>}
+          </div>
 
-              {/* Student ID */}
-              <div className="space-y-1.5 sm:space-y-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300">Student ID / Roll No *</label>
-                <input 
-                  type="text" 
-                  name="student_id"
-                  required
-                  value={formData.student_id}
-                  onChange={handleChange}
-                  className="w-full bg-[#05110d] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all uppercase min-h-[44px]"
-                  placeholder="4NM22CS001"
-                />
-              </div>
+          <div>
+            <label htmlFor="reg-phone" className={labelCls}>Phone Number *</label>
+            <input id="reg-phone" type="tel" name="phone" required value={formData.phone} onChange={handleChange} className="px-input w-full" placeholder="+91 9876543210" />
+          </div>
 
-              {/* Email */}
-              <div className="space-y-1.5 sm:space-y-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300">College Email *</label>
-                <input 
-                  type="email" 
-                  name="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  onBlur={handleEmailBlur}
-                  className="w-full bg-[#05110d] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all min-h-[44px]"
-                  placeholder="alex@nmamit.in"
-                />
-                {emailWarning && (
-                  <p className="text-xs text-rose-400">{emailWarning}</p>
-                )}
-                {emailCheckLoading && (
-                  <p className="text-[11px] text-stone-500">Checking eligibility...</p>
-                )}
-              </div>
+          <div>
+            <label htmlFor="reg-department" className={labelCls}>Department</label>
+            <select id="reg-department" name="department" value={formData.department} onChange={handleChange} className="px-input w-full cursor-pointer">
+              <option value="">Select department</option>
+              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
 
-              {/* Phone */}
-              <div className="space-y-1.5 sm:space-y-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300">Phone Number *</label>
-                <input 
-                  type="tel" 
-                  name="phone"
-                  required
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="w-full bg-[#05110d] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all min-h-[44px]"
-                  placeholder="+91 9876543210"
-                />
-              </div>
-
-              {/* Department */}
-              <div className="space-y-1.5 sm:space-y-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300">Department</label>
-                <select 
-                  name="department"
-                  value={formData.department}
-                  onChange={handleChange}
-                  className="w-full bg-[#05110d] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-stone-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all cursor-pointer min-h-[44px]"
-                >
-                  <option value="" className="bg-[#05110d] text-stone-500">Select department</option>
-                  {DEPARTMENTS.map(d => <option key={d} value={d} className="bg-[#05110d] text-stone-200">{d}</option>)}
-                </select>
-              </div>
-
-              {/* Year */}
-              <div className="space-y-1.5 sm:space-y-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300">Academic Year</label>
-                <select 
-                  name="year"
-                  value={formData.year}
-                  onChange={handleChange}
-                  className="w-full bg-[#05110d] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-stone-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all cursor-pointer min-h-[44px]"
-                >
-                  <option value="" className="bg-[#05110d] text-stone-500">Select year</option>
-                  {YEARS.map(y => <option key={y} value={y} className="bg-[#05110d] text-stone-200">{y}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-white/[0.06]">
-              <button
-                type="submit"
-                disabled={isSubmitting || !!emailWarning}
-                className="w-full py-3.5 sm:py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 text-[#04110b] font-bold text-sm transition-all duration-300 shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01] min-h-[48px]"
-              >
-                {isSubmitting ? (
-                  <span>Submitting Registration...</span>
-                ) : (
-                  <>
-                    <span>Confirm Event Registration</span>
-                    <Send className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-              <p className="text-[11px] text-stone-500 text-center mt-3">
-                By registering, you agree to attend on time and adhere to campus safety guidelines.
-              </p>
-            </div>
-
-          </form>
-
+          <div>
+            <label htmlFor="reg-year" className={labelCls}>Academic Year</label>
+            <select id="reg-year" name="year" value={formData.year} onChange={handleChange} className="px-input w-full cursor-pointer">
+              <option value="">Select year</option>
+              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
         </div>
-      </div>
-    </PublicLayout>
+
+        <div className="pt-5 border-t-2 border-dashed border-earth/30">
+          <button type="submit" disabled={isSubmitting || !!emailWarning} className="px-btn px-btn--grass w-full">
+            {isSubmitting ? 'Signing the contract…' : <><span aria-hidden="true">▶</span> Accept Quest</>}
+          </button>
+          <p className="text-xs text-bark/65 text-center mt-4">
+            By registering, you agree to attend on time and adhere to campus safety guidelines.
+          </p>
+        </div>
+      </form>
+    </>
   );
 }

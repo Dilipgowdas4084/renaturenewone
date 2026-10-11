@@ -11,7 +11,8 @@ exports.registerForEvent = async (req, res) => {
     }
     
     const event = eventResult.rows[0];
-    if (event.status !== 'published') {
+    // Both of these statuses mean "open for sign-ups" in the admin event form.
+    if (!['published', 'registration_open'].includes(event.status)) {
       return res.status(400).json({ error: 'Event is not open for registration' });
     }
     
@@ -177,3 +178,62 @@ exports.getAllRegistrations = async (req, res) => {
   }
 };
 
+
+// Logged-in member's own registrations (for the member dashboard).
+// Registrations aren't linked to an account id, so they're matched by the
+// account's email or USN against what was entered on the registration form.
+exports.getMyRegistrations = async (req, res) => {
+  try {
+    const userResult = await pool.query('SELECT id, name, email, usn, phone, role FROM users WHERE id = $1', [req.user.id]);
+    const user = userResult.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const email = (user.email || '').toLowerCase().trim();
+    const usn = (user.usn || '').toUpperCase().trim();
+
+    let rows;
+    if (pool.hasPostgres()) {
+      const result = await pool.pgQuery(`
+        SELECT er.id, er.event_id, er.reference_id, er.status, er.registered_at,
+               e.title, e.event_date, e.start_time, e.venue, e.category, e.image_url,
+               e.status AS event_status, e.points_available,
+               a.status AS attendance_status, r.points, r.rank
+        FROM event_registrations er
+        JOIN events e ON e.id = er.event_id
+        LEFT JOIN attendance a ON a.registration_id = er.id
+        LEFT JOIN event_results r ON r.registration_id = er.id
+        WHERE LOWER(TRIM(er.email)) = $1 OR ($2 <> '' AND UPPER(TRIM(er.student_id)) = $2)
+        ORDER BY e.event_date ASC
+      `, [email, usn]);
+      rows = result.rows;
+    } else {
+      const db = pool.memoryDb;
+      rows = db.event_registrations
+        .filter(er =>
+          (er.email || '').toLowerCase().trim() === email ||
+          (usn && (er.student_id || '').toUpperCase().trim() === usn))
+        .map(er => {
+          const e = db.events.find(ev => ev.id === er.event_id);
+          if (!e) return null; // event was deleted
+          const a = db.attendance.find(x => x.registration_id === er.id);
+          const r = db.event_results.find(x => x.registration_id === er.id);
+          return {
+            id: er.id, event_id: er.event_id, reference_id: er.reference_id, status: er.status,
+            registered_at: er.registered_at,
+            title: e.title, event_date: e.event_date, start_time: e.start_time, venue: e.venue,
+            category: e.category, image_url: e.image_url, event_status: e.status,
+            points_available: e.points_available,
+            attendance_status: a ? a.status : null,
+            points: r ? r.points : null, rank: r ? r.rank : null,
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => String(a.event_date).localeCompare(String(b.event_date)));
+    }
+
+    res.json({ registrations: rows });
+  } catch (error) {
+    console.error('Error getting my registrations:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};

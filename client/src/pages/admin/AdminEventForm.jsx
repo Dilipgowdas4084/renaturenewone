@@ -30,7 +30,8 @@ const AdminEventForm = () => {
     eligibility: '',
     rules: '',
     organizer_info: '',
-    status: 'draft'
+    // New events go live with "Publish Event"; "Save as Draft" still saves a draft.
+    status: 'published'
   });
 
   const fetchEventDetails = useCallback(async () => {
@@ -117,7 +118,7 @@ const AdminEventForm = () => {
       navigate('/admin/events');
     } catch (err) {
       console.error('Error saving event:', err);
-      setError(err.response?.data?.message || 'Failed to save event. Please try again.');
+      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to save event. Please try again.');
       window.scrollTo(0, 0);
     } finally {
       setSaving(false);

@@ -2,52 +2,109 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import PublicLayout from '../components/PublicLayout';
 import api from '../utils/api';
-import StatusBadge from '../components/ui/StatusBadge';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
-import EmptyState from '../components/ui/EmptyState';
-import { Calendar, MapPin, Users, Search, Filter, ArrowRight } from 'lucide-react';
+import { texture } from '../utils/pixelTextures';
 
 const CATEGORIES = ['All', 'Nature Walk', 'Workshop', 'Cleanup Drive', 'Photography', 'Seminar', 'Competition', 'Other'];
 const STATUSES = ['All', 'Upcoming', 'Ongoing', 'Completed'];
 
-const SAMPLE_EVENTS = [
-  {
-    id: 'sample-1',
-    title: 'Campus Cleanup Drive',
-    category: 'Cleanup Drive',
-    description: 'Join us for our monthly campus cleanup. Help us keep our environment clean, collect plastic waste, and maintain healthy habitats.',
-    date: '2026-09-10',
-    venue: 'Main Gate',
-    status: 'Upcoming',
-    registered_count: 45,
-    max_participants: 100,
-    image_url: '/IMG_9279.jpeg'
-  },
-  {
-    id: 'sample-2',
-    title: 'Wildlife Photography Workshop',
-    category: 'Photography',
-    description: 'Learn the fundamentals of ethical wildlife photography and avian behavior tracking from professional naturalists.',
-    date: '2026-09-15',
-    venue: 'Auditorium 1',
-    status: 'Upcoming',
-    registered_count: 120,
-    max_participants: 150,
-    image_url: '/IMG_9723.jpeg'
-  },
-  {
-    id: 'sample-3',
-    title: 'Botanical Garden Native Walk',
-    category: 'Nature Walk',
-    description: 'A guided field tour through the university botanical gardens focusing on endangered native trees and medicinal plant flora.',
-    date: '2026-09-20',
-    venue: 'Botanical Garden',
-    status: 'Upcoming',
-    registered_count: 30,
-    max_participants: 30,
-    image_url: '/IMG_9183.jpeg'
-  }
-];
+const CATEGORY_ICONS = {
+  'Nature Walk': '🥾',
+  Workshop: '🛠️',
+  'Cleanup Drive': '🧹',
+  Photography: '📷',
+  Seminar: '🎤',
+  Competition: '⚔️',
+  Other: '🌱',
+};
+
+const TILTS = ['-rotate-[0.8deg]', 'rotate-[0.6deg]', 'rotate-0', 'rotate-[0.4deg]', '-rotate-[0.5deg]'];
+
+function QuestCard({ event, index }) {
+  const isFull = event.max_participants && event.registered_count >= event.max_participants;
+  const statusKey = String(event.status || '').toLowerCase();
+  const isPast = statusKey === 'completed';
+  const isOngoing = statusKey === 'ongoing';
+  const deadlinePassed = Boolean(event.registration_deadline) && new Date(event.registration_deadline) < new Date();
+  const isRegClosed = statusKey === 'registration_closed' || statusKey === 'draft' || deadlinePassed;
+  const canRegister = !isPast && !isOngoing && !isRegClosed && !isFull;
+  const eventDate = event.event_date || event.date;
+  const formattedDate = eventDate
+    ? new Date(eventDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+    : 'Date TBA';
+
+  const quest = isPast
+    ? { label: 'Quest Completed', icon: '✔', cls: 'bg-stone text-cream' }
+    : isOngoing
+      ? { label: 'Quest In Progress', icon: '⏳', cls: 'bg-ember text-bark' }
+      : isRegClosed
+        ? { label: 'Registration Closed', icon: '🔒', cls: 'bg-earth text-cream' }
+      : { label: 'Available Quest', icon: '!', cls: 'bg-forest text-cream' };
+  const number = String(index + 1).padStart(2, '0');
+  const icon = CATEGORY_ICONS[event.category] || '🌱';
+  const image = event.image_url || event.banner_url;
+
+  return (
+    <article
+      className={`relative px-panel p-5 pt-8 flex flex-col transition-transform duration-200 hover:rotate-0 hover:-translate-y-1 ${TILTS[index % TILTS.length]} ${isPast ? 'saturate-[0.6]' : ''}`}
+      style={texture('parchment', 64)}
+    >
+      {/* pin */}
+      <span aria-hidden="true" className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#c0392b] shadow-[inset_-3px_-3px_0_rgba(0,0,0,0.3),inset_2px_2px_0_rgba(255,255,255,0.4),0_3px_0_rgba(0,0,0,0.35)]" />
+
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <span className="font-pixel text-sm tracking-[0.15em] text-earth">QUEST <span className="font-num text-[11px] tracking-normal">#{number}</span></span>
+        <span className={`font-pixel text-[11px] tracking-[0.08em] uppercase px-2 py-1 px-panel--thin whitespace-nowrap ${quest.cls}`}>
+          <span aria-hidden="true">{quest.icon}</span> {quest.label}
+        </span>
+      </div>
+
+      {image && (
+        <div className="px-panel--thin h-36 mb-4 overflow-hidden bg-bark">
+          <img
+            src={image}
+            alt={event.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.src = '/IMG_9183.jpeg';
+            }}
+          />
+        </div>
+      )}
+
+      <h3 className="font-pixel text-xl sm:text-[1.35rem] leading-snug text-bark uppercase mb-2">
+        <span aria-hidden="true" className="mr-1">{icon}</span>{event.title}
+      </h3>
+      {event.category && (
+        <span className="self-start font-pixel text-[11px] tracking-[0.1em] uppercase px-2 py-0.5 mb-3 bg-sage/50 text-deep">{event.category}</span>
+      )}
+
+      {event.description && (
+        <p className="text-sm text-bark/80 leading-relaxed mb-4 line-clamp-3">{event.description}</p>
+      )}
+
+      <ul className="space-y-1.5 text-sm text-bark/90 mb-5">
+        <li className="flex items-center gap-2"><span aria-hidden="true">📍</span><span className="truncate">{event.venue}</span></li>
+        <li className="flex items-center gap-2"><span aria-hidden="true">📅</span>{formattedDate}</li>
+        <li className="flex items-center gap-2"><span aria-hidden="true">👥</span>{event.registered_count || 0} / {event.max_participants || 'Unlimited'} registered</li>
+      </ul>
+
+      <div className="mt-auto pt-4 border-t-2 border-dashed border-earth/30 flex flex-wrap gap-4">
+        <Link to={`/events/${event.id}`} className="px-btn px-btn--wood px-btn--sm flex-1">
+          View Quest
+        </Link>
+        {canRegister ? (
+          <Link to={`/events/${event.id}/register`} className="px-btn px-btn--grass px-btn--sm flex-1">
+            Accept Quest
+          </Link>
+        ) : (
+          <span aria-disabled="true" className="px-btn px-btn--stone px-btn--sm flex-1">
+            {isPast ? 'Concluded' : isOngoing ? 'In Progress' : isRegClosed ? 'Closed' : 'Quest Full'}
+          </span>
+        )}
+      </div>
+    </article>
+  );
+}
 
 export default function Events() {
   const [events, setEvents] = useState([]);
@@ -68,15 +125,18 @@ export default function Events() {
       if (search) params.search = search;
 
       const res = await api.get('/events', { params });
-      if (res.data && res.data.length > 0) {
+      if (Array.isArray(res.data)) {
+        // Show exactly what the admin has published — no placeholder events.
         setEvents(res.data);
       } else {
-        setEvents(SAMPLE_EVENTS);
+        // Got something other than a list (e.g. the API isn't reachable)
+        setError(true);
+        setEvents([]);
       }
     } catch (err) {
       console.error('Failed to fetch events:', err);
       setError(true);
-      setEvents(SAMPLE_EVENTS);
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -93,188 +153,94 @@ export default function Events() {
 
   return (
     <PublicLayout>
-      <div className="min-h-screen bg-[#040d0a] text-stone-200 pb-24 selection:bg-emerald-500/20 selection:text-emerald-300">
-        
-        {/* ─── Hero Section ─── */}
-        <section className="relative pt-28 sm:pt-32 pb-12 sm:pb-16 px-4 sm:px-6 text-center overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(16,185,129,0.08)_0%,_transparent_60%)]" />
-          
-          <div className="relative z-10 max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-5">
-              <Calendar className="w-3.5 h-3.5" />
-              Verified Drives & Expeditions
+      <div className="relative min-h-screen pb-24" style={texture('darkPlanks', 72)}>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/20 to-black/50 pointer-events-none" />
+
+        {/* ─── Hanging sign ─── */}
+        <section className="relative pt-10 sm:pt-14 pb-10 px-6 text-center">
+          <div className="inline-block px-sign-swing">
+            <div className="flex justify-between px-10" aria-hidden="true">
+              <span className="w-1 h-8 bg-[#3a2a1a]" />
+              <span className="w-1 h-8 bg-[#3a2a1a]" />
             </div>
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white mb-4 sm:mb-6 tracking-tight">
-              Upcoming <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">Events</span>
-            </h1>
-            <p className="text-sm sm:text-base lg:text-lg text-stone-300 max-w-2xl mx-auto leading-relaxed">
-              Discover and join environmental expeditions dedicated to nurturing our campus ecosystem and earning Eco-Points.
-            </p>
+            <div className="px-panel px-8 sm:px-12 py-5" style={texture('planks', 56)}>
+              <p className="font-pixel text-sun text-xs sm:text-sm tracking-[0.35em] mb-1 uppercase">Verified Drives & Expeditions</p>
+              <h1 className="px-title text-cream text-4xl sm:text-6xl tracking-wide">QUEST BOARD</h1>
+            </div>
           </div>
+          <p className="mt-6 text-cream/85 max-w-2xl mx-auto text-base sm:text-lg">
+            Discover and join environmental expeditions dedicated to nurturing our campus ecosystem and earning Eco-Points.
+          </p>
         </section>
 
-        {/* ─── Search & Filter Bar ─── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 mb-8 sm:mb-12 relative z-10">
-          <div className="bg-[#091a14]/80 border border-white/[0.08] rounded-2xl p-3 sm:p-4 backdrop-blur-xl flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-center justify-between shadow-xl shadow-black/20">
-            
-            {/* Search Input */}
-            <form onSubmit={handleSearchSubmit} className="relative w-full md:w-96">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-              <input 
-                type="text" 
-                placeholder="Search events, topics, or venues..." 
+        {/* ─── Filters ─── */}
+        <section className="relative max-w-7xl mx-auto px-6 mb-14">
+          <div className="px-panel p-4 sm:p-5 flex flex-col md:flex-row gap-5 md:items-center md:justify-between" style={texture('stone', 56)}>
+            <form onSubmit={handleSearchSubmit} className="flex gap-4 w-full md:w-auto md:flex-1 md:max-w-md">
+              <label className="sr-only" htmlFor="quest-search">Search quests</label>
+              <input
+                id="quest-search"
+                type="text"
+                placeholder="🔍  Search quests, topics, or venues..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-[#05110d] border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-4 text-sm text-stone-200 placeholder:text-stone-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all min-h-[44px]"
+                className="px-input w-full"
               />
+              <button type="submit" className="px-btn px-btn--wood px-btn--sm">Search</button>
             </form>
-
-            {/* Dropdown Filters */}
-            <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 w-full md:w-auto">
-              <div className="flex items-center gap-2 bg-[#05110d] border border-white/[0.08] rounded-xl px-3 py-1 min-h-[44px]">
-                <Filter className="w-4 h-4 text-stone-400 shrink-0" />
-                <select 
-                  value={category} 
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="bg-transparent py-1.5 pr-4 text-xs sm:text-sm text-stone-200 focus:outline-none cursor-pointer w-full"
-                >
-                  {CATEGORIES.map(c => <option key={c} value={c} className="bg-[#05110d] text-stone-200">{c}</option>)}
+            <div className="flex flex-col sm:flex-row gap-5 sm:gap-4">
+              <label className="flex items-center gap-3">
+                <span className="font-pixel text-xs tracking-[0.15em] text-cream px-shadow-sm">TYPE</span>
+                <select value={category} onChange={(e) => setCategory(e.target.value)} className="px-input cursor-pointer flex-1">
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-              </div>
-
-              <div className="flex items-center gap-2 bg-[#05110d] border border-white/[0.08] rounded-xl px-3 py-1 min-h-[44px]">
-                <select 
-                  value={status} 
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="bg-transparent py-1.5 pr-4 text-xs sm:text-sm text-stone-200 focus:outline-none cursor-pointer w-full"
-                >
-                  {STATUSES.map(s => <option key={s} value={s} className="bg-[#05110d] text-stone-200">{s}</option>)}
+              </label>
+              <label className="flex items-center gap-3">
+                <span className="font-pixel text-xs tracking-[0.15em] text-cream px-shadow-sm">STATUS</span>
+                <select value={status} onChange={(e) => setStatus(e.target.value)} className="px-input cursor-pointer flex-1">
+                  {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-              </div>
+              </label>
             </div>
-
           </div>
         </section>
 
-        {/* ─── Events Grid ─── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6">
+        {/* ─── Quest cards ─── */}
+        <section className="relative max-w-7xl mx-auto px-6">
           {error && (
-            <div className="mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm text-center">
-              Notice: Displaying curated preview events.
+            <div className="mb-10 px-panel px-panel--thin p-4 bg-ember text-bark text-center font-semibold">
+              Could not load events right now. Please try again in a moment.
             </div>
           )}
 
           {loading ? (
-            <div className="py-20 flex justify-center">
-              <LoadingSpinner size="lg" message="Loading environmental drives..." />
+            <div className="py-24 flex flex-col items-center gap-4" role="status">
+              <div className="flex gap-2" aria-hidden="true">
+                {[0, 1, 2].map(i => <span key={i} className="w-4 h-4 bg-sun px-bounce" style={{ animationDelay: `${i * 0.2}s` }} />)}
+              </div>
+              <p className="font-pixel text-cream tracking-[0.2em] px-shadow-sm">LOADING QUESTS…</p>
             </div>
-          ) : events.length === 0 ? (
-            <EmptyState 
-              title="No events found" 
-              description="We couldn't find any events matching your selected criteria. Try adjusting your search query or filters."
-              icon={Calendar}
-            />
+          ) : error ? null : events.length === 0 ? (
+            <div className="max-w-md mx-auto px-panel p-8 text-center" style={texture('parchment', 64)}>
+              <p className="text-4xl mb-3" aria-hidden="true">🗺️</p>
+              {search || category !== 'All' || status !== 'All' ? (
+                <>
+                  <h2 className="font-pixel text-2xl text-bark mb-2">NO EVENTS FOUND</h2>
+                  <p className="text-bark/75">We couldn't find any events matching your selected criteria. Try adjusting your search query or filters.</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="font-pixel text-2xl text-bark mb-2">NO UPCOMING EVENTS</h2>
+                  <p className="text-bark/75">There are no events right now. Check back soon for new quests!</p>
+                </>
+              )}
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {events.map(event => {
-                const isFull = event.max_participants && event.registered_count >= event.max_participants;
-                const isPast = event.status === 'Completed';
-                const eventDate = event.event_date || event.date;
-                const formattedDate = eventDate 
-                  ? new Date(eventDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-                  : 'Date TBA';
-
-                return (
-                  <div 
-                    key={event.id} 
-                    className="rounded-3xl bg-[#091a14]/60 border border-white/[0.08] overflow-hidden flex flex-col transition-all duration-300 hover:border-emerald-500/35 hover:-translate-y-1 group shadow-xl shadow-black/30 backdrop-blur-xl"
-                  >
-                    {/* Image Area */}
-                    <div className="h-52 bg-[#05110d] relative overflow-hidden">
-                      {event.image_url || event.banner_url ? (
-                        <img 
-                          src={event.image_url || event.banner_url} 
-                          alt={event.title} 
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                          onError={(e) => {
-                            e.target.src = '/IMG_9183.jpeg';
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-[#0c221a] to-[#05110d] flex items-center justify-center">
-                          <Calendar className="w-12 h-12 text-emerald-500/20" />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#091a14] via-transparent to-transparent opacity-80" />
-                      
-                      {/* Top Badges */}
-                      <div className="absolute top-4 left-4">
-                        <StatusBadge status={event.status} />
-                      </div>
-                      <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
-                        {event.category}
-                      </div>
-                    </div>
-                    
-                    {/* Content Area */}
-                    <div className="p-6 flex-1 flex flex-col justify-between">
-                      <div>
-                        <h3 className="text-xl font-bold text-white mb-2 line-clamp-2 group-hover:text-emerald-300 transition-colors">
-                          {event.title}
-                        </h3>
-                        <p className="text-stone-400 text-sm mb-5 line-clamp-2 leading-relaxed">
-                          {event.description}
-                        </p>
-                        
-                        <div className="flex flex-col gap-2.5 mb-6 text-xs text-stone-300 bg-[#05110d]/50 p-3.5 rounded-xl border border-white/[0.04]">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span>{formattedDate}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span className="truncate">{event.venue}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Users className="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span>{event.registered_count || 0} / {event.max_participants || 'Unlimited'} registered</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Bottom Action Buttons */}
-                      <div className="pt-2 border-t border-white/[0.06] flex items-center gap-3">
-                        <Link 
-                          to={`/events/${event.id}`}
-                          className="flex-1 py-2.5 px-4 text-center rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-stone-200 hover:text-white text-xs font-semibold border border-white/[0.08] transition-all min-h-[44px] flex items-center justify-center cursor-pointer"
-                        >
-                          View Details
-                        </Link>
-                        
-                        {!isPast && !isFull && (
-                          <Link 
-                            to={`/events/${event.id}/register`}
-                            className="flex-1 py-2.5 px-4 text-center rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-[#04110b] text-xs font-bold transition-all shadow-md shadow-emerald-500/20 hover:scale-[1.02] flex items-center justify-center gap-1.5 min-h-[44px] cursor-pointer"
-                          >
-                            Register
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </Link>
-                        )}
-                        {(isFull || isPast) && (
-                          <span className="flex-1 py-2.5 px-4 text-center rounded-xl bg-white/[0.02] text-stone-500 text-xs font-medium border border-white/[0.04] cursor-not-allowed min-h-[44px] flex items-center justify-center">
-                            {isFull ? 'Event Full' : 'Concluded'}
-                          </span>
-                        )}
-                      </div>
-
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+              {events.map((event, index) => <QuestCard key={event.id} event={event} index={index} />)}
             </div>
           )}
         </section>
-
       </div>
     </PublicLayout>
   );

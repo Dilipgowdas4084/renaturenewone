@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import axios from 'axios';
-import { decodeToken, storeTokens, clearTokens } from '../utils/auth';
+import { decodeToken, storeTokens, clearTokens, dashboardPathFor } from '../utils/auth';
 
 export default function ProtectedRoute({ children, allowedRoles }) {
   const [status, setStatus] = useState('checking');
@@ -47,7 +47,8 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   }
 
   if (allowedRoles && !allowedRoles.includes(role)) {
-    return <Navigate to="/login" replace />;
+    // Logged in, just not for this area: send them to their own dashboard.
+    return <Navigate to={dashboardPathFor(role)} replace />;
   }
 
   return children;

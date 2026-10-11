@@ -1,5 +1,25 @@
 @import "tailwindcss";
 
+@theme {
+  --font-pixel: "Pixelify Sans", "Courier New", monospace;
+  --font-num: "Press Start 2P", "Courier New", monospace;
+  --font-body: "Nunito", "Segoe UI", system-ui, sans-serif;
+
+  --color-forest: #3f7d3a;
+  --color-deep: #1f3b1c;
+  --color-sage: #9cb88a;
+  --color-earth: #7a5230;
+  --color-wood: #9a6a3a;
+  --color-bark: #2b1d12;
+  --color-cream: #f4ecd8;
+  --color-parchment: #efe3c4;
+  --color-sun: #e9c46a;
+  --color-sky: #8ecae6;
+  --color-ember: #f4a261;
+  --color-stone: #7d7d74;
+  --color-night: #15130f;
+}
+
 :root {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   line-height: 1.6;
@@ -129,4 +149,169 @@ body {
 @media print {
   nav, footer, .no-print { display: none !important; }
   body { background: white !important; color: black !important; }
+}
+
+@layer base {
+  button, input {
+    font: inherit;
+  }
+}
+
+/* ─────────────── Pixel world UI kit ─────────────── */
+
+@layer components {
+/* Blocky panel: 4px border with notched corners + bevel, like a game UI window. */
+.px-panel {
+  --px-edge: #2b1d12;
+  position: relative;
+  box-shadow:
+    0 -4px 0 0 var(--px-edge),
+    0 4px 0 0 var(--px-edge),
+    -4px 0 0 0 var(--px-edge),
+    4px 0 0 0 var(--px-edge),
+    inset -4px -4px 0 0 rgba(0, 0, 0, 0.16),
+    inset 4px 4px 0 0 rgba(255, 255, 255, 0.28),
+    0 12px 0 0 rgba(0, 0, 0, 0.18);
+}
+.px-panel--thin {
+  --px-edge: #2b1d12;
+  box-shadow:
+    0 -3px 0 0 var(--px-edge),
+    0 3px 0 0 var(--px-edge),
+    -3px 0 0 0 var(--px-edge),
+    3px 0 0 0 var(--px-edge),
+    inset -3px -3px 0 0 rgba(0, 0, 0, 0.14),
+    inset 3px 3px 0 0 rgba(255, 255, 255, 0.22);
+}
+
+/* Game-style buttons */
+.px-btn {
+  --btn-bg: #7d7d74;
+  --btn-fg: #fdf8ec;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-pixel);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+  padding: 0.8rem 1.1rem;
+  color: var(--btn-fg);
+  background: var(--btn-bg);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 -3px 0 0 #1c140c,
+    0 3px 0 0 #1c140c,
+    -3px 0 0 0 #1c140c,
+    3px 0 0 0 #1c140c,
+    inset -3px -4px 0 0 rgba(0, 0, 0, 0.3),
+    inset 3px 3px 0 0 rgba(255, 255, 255, 0.3);
+  transition: transform 0.08s ease, filter 0.15s ease;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.px-btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
+.px-btn:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 -3px 0 0 #1c140c,
+    0 3px 0 0 #1c140c,
+    -3px 0 0 0 #1c140c,
+    3px 0 0 0 #1c140c,
+    inset 3px 4px 0 0 rgba(0, 0, 0, 0.3),
+    inset -3px -3px 0 0 rgba(255, 255, 255, 0.15);
+}
+.px-btn:focus-visible { outline: 3px solid #e9c46a; outline-offset: 5px; }
+.px-btn:disabled,
+.px-btn[aria-disabled="true"] { filter: grayscale(0.7) brightness(0.8); transform: none; cursor: not-allowed; }
+.px-btn--grass { --btn-bg: #5a9e3e; }
+.px-btn--wood  { --btn-bg: #9a6a3a; }
+.px-btn--stone { --btn-bg: #6f6f68; }
+.px-btn--sun   { --btn-bg: #e2b64f; --btn-fg: #2b1d12; text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.35); }
+.px-btn--cream { --btn-bg: #efe3c4; --btn-fg: #2b1d12; text-shadow: none; }
+.px-btn--danger { --btn-bg: #9c3d33; }
+.px-btn--sm { padding: 0.55rem 0.8rem; font-size: 0.8rem; }
+
+/* Chunky pixel text shadow for titles */
+.px-title { font-family: var(--font-pixel); text-shadow: 4px 4px 0 #2b1d12, -2px -2px 0 #2b1d12, 2px -2px 0 #2b1d12, -2px 2px 0 #2b1d12; }
+.px-shadow-sm { text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45); }
+
+/* Pixel form controls */
+.px-input {
+  font-family: var(--font-body);
+  background: #fbf6e8;
+  color: #2b1d12;
+  padding: 0.65rem 0.9rem;
+  box-shadow:
+    0 -3px 0 0 #2b1d12, 0 3px 0 0 #2b1d12, -3px 0 0 0 #2b1d12, 3px 0 0 0 #2b1d12,
+    inset 3px 3px 0 0 rgba(0, 0, 0, 0.12);
+  outline: none;
+}
+.px-input::placeholder { color: #8a7a5f; }
+.px-input:focus { box-shadow: 0 -3px 0 0 #3f7d3a, 0 3px 0 0 #3f7d3a, -3px 0 0 0 #3f7d3a, 3px 0 0 0 #3f7d3a, inset 3px 3px 0 0 rgba(0, 0, 0, 0.12); }
+
+/* XP bar: segmented like a game meter */
+.px-xp-track { background: #3a2a1a; box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.35); }
+.px-xp-fill {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 10px, rgba(0, 0, 0, 0.22) 10px 12px),
+    linear-gradient(#8ed163, #8ed163 45%, #5a9e3e 45%);
+  transition: width 0.8s steps(12);
+}
+}
+
+/* ─── Scene animations ─── */
+@keyframes px-drift { from { transform: translateX(-120px); } to { transform: translateX(600px); } }
+@keyframes px-walk { from { transform: translateX(-30px); } to { transform: translateX(510px); } }
+@keyframes px-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
+@keyframes px-frame-a { 0%, 49.9% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes px-frame-b { 0%, 49.9% { opacity: 0; } 50%, 100% { opacity: 1; } }
+@keyframes px-sway { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+@keyframes px-leaf {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  50% { transform: translate(var(--drift, 8px), 22px) rotate(160deg); }
+  88% { opacity: 1; }
+  100% { transform: translate(calc(var(--drift, 8px) * -0.5), 44px) rotate(320deg); opacity: 0; }
+}
+@keyframes px-fly { from { transform: translateX(-40px); } to { transform: translateX(540px); } }
+@keyframes px-twinkle { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+@keyframes px-firefly {
+  0%, 100% { transform: translate(0, 0); opacity: 0.15; }
+  25% { transform: translate(6px, -4px); opacity: 1; }
+  50% { transform: translate(10px, 2px); opacity: 0.4; }
+  75% { transform: translate(3px, 6px); opacity: 1; }
+}
+@keyframes px-shimmer { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.9; } }
+@keyframes px-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+@keyframes px-float-sign { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(1deg); } }
+
+.px-drift  { animation: px-drift var(--dur, 80s) linear infinite; animation-delay: var(--delay, 0s); }
+.px-walk   { animation: px-walk var(--dur, 42s) linear infinite; animation-delay: var(--delay, 0s); }
+.px-bob    { animation: px-bob 0.5s steps(2) infinite; }
+.px-frame-a { animation: px-frame-a 0.5s steps(1) infinite; }
+.px-frame-b { animation: px-frame-b 0.5s steps(1) infinite; }
+.px-sway   { transform-box: fill-box; transform-origin: 50% 100%; animation: px-sway var(--dur, 3s) ease-in-out infinite; animation-delay: var(--delay, 0s); }
+.px-leaf   { transform-box: fill-box; transform-origin: center; animation: px-leaf var(--dur, 9s) linear infinite; animation-delay: var(--delay, 0s); }
+.px-fly    { animation: px-fly var(--dur, 24s) linear infinite; animation-delay: var(--delay, 0s); }
+.px-flap-a { animation: px-frame-a 0.35s steps(1) infinite; }
+.px-flap-b { animation: px-frame-b 0.35s steps(1) infinite; }
+.px-twinkle { animation: px-twinkle var(--dur, 3s) ease-in-out infinite; animation-delay: var(--delay, 0s); }
+.px-firefly { animation: px-firefly var(--dur, 6s) ease-in-out infinite; animation-delay: var(--delay, 0s); }
+.px-shimmer { animation: px-shimmer var(--dur, 2.4s) steps(3) infinite; animation-delay: var(--delay, 0s); }
+.px-bounce { animation: px-bounce 1.2s steps(2) infinite; }
+.px-sign-swing { transform-origin: 50% 0; animation: px-float-sign 5s ease-in-out infinite; }
+@keyframes px-flicker { 0%, 100% { opacity: 1; } 30% { opacity: 0.65; } 60% { opacity: 0.9; } }
+.px-flicker { animation: px-flicker var(--dur, 1.4s) steps(3) infinite; animation-delay: var(--delay, 0s); }
+
+@media (prefers-reduced-motion: reduce) {
+  .px-drift, .px-walk, .px-bob, .px-sway, .px-leaf, .px-fly, .px-twinkle,
+  .px-firefly, .px-shimmer, .px-bounce, .px-sign-swing, .px-flap-a, .px-flap-b, .px-flicker {
+    animation: none !important;
+  }
+  .px-frame-b, .px-flap-b { opacity: 0; }
+  .px-leaf { opacity: 0; }
 }

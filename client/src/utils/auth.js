@@ -27,3 +27,24 @@ export function clearTokens() {
   localStorage.removeItem('token');
   localStorage.removeItem('refreshToken');
 }
+
+function liveTokenPayload(token) {
+  const decoded = token ? decodeToken(token) : null;
+  return decoded && decoded.exp * 1000 > Date.now() ? decoded : null;
+}
+
+// Logged in = a valid access token, or a valid refresh token that the API
+// client / ProtectedRoute will use to get a new access token. (Access tokens
+// only last 15 minutes; the session itself lasts as long as the refresh token.)
+export function isLoggedIn() {
+  return Boolean(liveTokenPayload(localStorage.getItem('token')) || liveTokenPayload(localStorage.getItem('refreshToken')));
+}
+
+export function getCurrentRole() {
+  const payload = liveTokenPayload(localStorage.getItem('token')) || liveTokenPayload(localStorage.getItem('refreshToken'));
+  return payload ? payload.role : null;
+}
+
+export function dashboardPathFor(role) {
+  return role === 'admin' ? '/admin/dashboard' : '/member-dashboard';
+}

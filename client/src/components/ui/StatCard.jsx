@@ -1,3 +1,5 @@
+// Icon can be a component (lucide icons are forwardRef objects, not plain functions) or a rendered element.
+import { isValidElement } from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 export default function StatCard({ title, value, subtitle, icon: Icon, trend, color = 'emerald' }) {
@@ -34,7 +36,7 @@ export default function StatCard({ title, value, subtitle, icon: Icon, trend, co
         </div>
         {Icon && (
           <div className={`p-3 rounded-xl border ${selectedColor.icon} transition-transform duration-300 group-hover:scale-105 shadow-sm`}>
-            {typeof Icon === 'function' ? <Icon className="w-5 h-5" /> : Icon}
+            {isValidElement(Icon) ? Icon : <Icon className="w-5 h-5" />}
           </div>
         )}
       </div>

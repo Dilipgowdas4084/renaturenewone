@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import PublicLayout from '../components/PublicLayout';
-import { Mail, Phone, MapPin, Send, CheckCircle2, Clock } from 'lucide-react';
+import ContactVillage from '../components/pixel/ContactVillage';
+import { texture } from '../utils/pixelTextures';
+import { Mail, Phone, MapPin, Send, Clock } from 'lucide-react';
 import api from '../utils/api';
 
 const InstagramIcon = ({ className }) => (
@@ -13,6 +15,29 @@ const TwitterIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M18.9 3H21l-6.55 7.49L22.5 21h-6.9l-5.4-6.53L3.9 21H1.8l7.02-8.03L1 3h7.05l4.88 5.96L18.9 3Zm-1.2 16.17h1.15L7.4 4.72H6.16L17.7 19.17Z" /></svg>
 );
 
+// Village props shown on each contact card (visual only)
+const CARD_DECOR = [
+  { object: 'Mailbox', emoji: '📮', tag: 'Send us a message' },
+  { object: 'Wooden Sign', emoji: '🪧', tag: 'Call the club' },
+  { object: 'Map', emoji: '🗺️', tag: 'Find us' },
+];
+
+function Parchment({ children, className = '' }) {
+  return (
+    <div className={`px-panel p-6 sm:p-8 ${className}`} style={texture('parchment', 64)}>
+      {children}
+    </div>
+  );
+}
+
+function IconTile({ children, size = 'w-14 h-14' }) {
+  return (
+    <div className={`${size} shrink-0 bg-forest px-panel--thin flex items-center justify-center`}>
+      {children}
+    </div>
+  );
+}
+
 export default function Contact() {
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
@@ -23,7 +48,7 @@ export default function Contact() {
     phone: '+91 8258 281263 / +91 94812 34567',
     address: 'NMAM Institute of Technology, Nitte, Karkala Taluk, Udupi - 574110, Karnataka',
     room: 'Student Activity Center, Cabin 104, Green Wing',
-    hours: 'Mon – Sat: 9:00 AM – 5:30 PM (Field Expeditions on Weekends)',
+    hours: 'Mon – Sat: 9:00 AM – 5:30 PM',
     instagram: 'https://instagram.com/renature_nmamit/',
     linkedin: 'https://linkedin.com/company/renature-nmamit/',
     twitter: 'https://x.com/renature_club',
@@ -90,180 +115,205 @@ export default function Contact() {
     }, 800);
   };
 
+  const labelCls = 'block font-pixel text-xs tracking-[0.15em] uppercase text-earth mb-2';
+
   return (
     <PublicLayout>
-      <div className="min-h-screen bg-[#040d0a] text-stone-200 pb-24 selection:bg-emerald-500/20 selection:text-emerald-300">
-        
-        {/* ─── Hero ─── */}
-        <section className="relative pt-28 sm:pt-32 pb-12 sm:pb-16 overflow-hidden text-center px-4 sm:px-6">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(16,185,129,0.08)_0%,_transparent_60%)]" />
-          <div className="relative z-10 max-w-4xl mx-auto">
-            <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mb-4 sm:mb-6 text-emerald-400 shadow-lg shadow-emerald-500/10">
-              <Mail className="w-7 h-7 sm:w-8 sm:h-8" />
-            </div>
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight mb-3 sm:mb-4">
-              Get in <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">Touch</span>
-            </h1>
-            <p className="text-sm sm:text-base lg:text-lg text-stone-300 max-w-2xl mx-auto leading-relaxed">
-              Have questions about upcoming drives, ecological fieldwork, or want to collaborate with renature? We'd love to connect.
-            </p>
-          </div>
-        </section>
+      <ContactVillage
+        sent={submitted}
+        eyebrow="CONTACT"
+        title="GET IN TOUCH"
+        subtitle="Have questions about upcoming drives, ecological fieldwork, or want to collaborate with renature? We'd love to connect."
+      />
+
+      <div className="relative pb-24" style={texture('darkPlanks', 72)}>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/20 to-black/50 pointer-events-none" />
 
         {/* ─── Contact Info Cards ─── */}
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 mb-12 sm:mb-16">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-            {contactInfo.map(({ icon: Icon, label, value, href, description }) => (
-              <div
-                key={label}
-                className="group rounded-3xl border border-white/[0.08] bg-[#091a14]/60 p-6 sm:p-7 hover:border-emerald-500/35 transition-all duration-300 text-center backdrop-blur-xl shadow-xl shadow-black/20 hover:-translate-y-1"
-              >
-                <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mb-4 sm:mb-5 text-emerald-400 group-hover:scale-110 transition-transform">
-                  <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                </div>
-                <h3 className="text-xs uppercase tracking-wider text-emerald-400 font-bold mb-2">{label}</h3>
-                {href ? (
-                  <a
-                    href={href}
-                    className="text-sm sm:text-base font-bold text-white hover:text-emerald-300 transition-colors block mb-2 break-all"
-                  >
-                    {value}
-                  </a>
-                ) : (
-                  <p className="text-sm sm:text-base font-bold text-white mb-2">{value}</p>
-                )}
-                <p className="text-xs text-stone-400 leading-relaxed">{description}</p>
-              </div>
-            ))}
+        <section className="relative max-w-6xl mx-auto px-6 pt-16 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {contactInfo.map(({ icon: Icon, label, value, href, description }, i) => {
+              const decor = CARD_DECOR[i % CARD_DECOR.length];
+              return (
+                <Parchment key={label} className="cv-obj relative text-center transition-transform duration-200 hover:-translate-y-1">
+                  <span className="cv-tag absolute -top-4 left-1/2 -translate-x-1/2 px-panel--thin bg-sun text-bark font-pixel text-xs uppercase tracking-wider px-3 py-1 whitespace-nowrap">{decor.tag}</span>
+                  <div className="flex justify-center mb-4">
+                    <IconTile><span className="text-2xl" aria-hidden="true">{decor.emoji}</span></IconTile>
+                  </div>
+                  <h3 className="font-pixel text-xs tracking-[0.2em] uppercase text-earth mb-2">
+                    <Icon className="inline w-4 h-4 mr-1 -mt-1" aria-hidden="true" />{decor.object} · {label}
+                  </h3>
+                  {href ? (
+                    <a
+                      href={href}
+                      className="text-base sm:text-lg font-bold text-bark hover:text-forest transition-colors block mb-2 break-words"
+                    >
+                      {value}
+                    </a>
+                  ) : (
+                    <p className="text-base sm:text-lg font-bold text-bark mb-2">{value}</p>
+                  )}
+                  <p className="text-sm text-bark/70">{description}</p>
+                </Parchment>
+              );
+            })}
           </div>
         </section>
 
         {/* ─── Social Links ─── */}
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 mb-12 sm:mb-16 text-center">
-          <h2 className="text-lg sm:text-xl font-bold text-white mb-1.5 sm:mb-2 tracking-tight">Connect Online</h2>
-          <p className="text-stone-400 text-xs mb-5 sm:mb-6">Stay updated with event photos and environmental dispatches</p>
-          <div className="flex justify-center gap-3 sm:gap-4">
-            {socialLinks.map(({ name, icon: Icon, href, color }) => (
+        <section className="relative max-w-6xl mx-auto px-6 mb-16">
+          <div className="text-center mb-8">
+            <div className="inline-block px-panel px-panel--thin px-6 py-2" style={texture('planks', 48)}>
+              <h2 className="px-title text-cream text-2xl sm:text-3xl tracking-wide"><span aria-hidden="true">📜 </span>Connect Online</h2>
+            </div>
+            <p className="mt-5 text-cream/80">Stay updated with event photos and environmental dispatches</p>
+          </div>
+          <div className="flex justify-center gap-5">
+            {socialLinks.map(({ name, icon: Icon, href }) => (
               <a
                 key={name}
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
                 title={name}
-                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border border-white/[0.08] bg-[#091a14]/70 flex items-center justify-center text-stone-400 transition-all duration-200 backdrop-blur-xl hover:scale-105 min-h-[48px] min-w-[48px] ${color}`}
+                aria-label={name}
+                className="w-14 h-14 px-panel--thin bg-[#2a2622] text-cream flex items-center justify-center transition-colors hover:bg-sun hover:text-bark"
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-6 h-6" />
               </a>
             ))}
           </div>
         </section>
 
         {/* ─── Contact Form + Org Info ─── */}
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10">
-            
-            {/* Form */}
-            <div className="rounded-3xl border border-white/[0.08] bg-[#091a14]/70 p-5 sm:p-8 md:p-10 backdrop-blur-xl shadow-xl shadow-black/30">
-              <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 tracking-tight">Send Us a Dispatch</h2>
-              <p className="text-stone-400 text-xs mb-6">Fill in your inquiry and our coordinator team will respond within 48 hours.</p>
+        <section className="relative max-w-6xl mx-auto px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            {/* Form, inside a little cabin */}
+            <div className="relative flex flex-col">
+              {/* roof */}
+              <div className="h-4 mx-3 bg-[#8a3f2b] border-4 border-b-0 border-[#3a2a1a]" aria-hidden="true" />
+              <div className="h-4 bg-[#9c4a33] border-4 border-b-0 border-[#3a2a1a]" aria-hidden="true" />
+              <div className="relative flex-1 border-x-4 border-[#3a2a1a]">
+                {/* log pillars */}
+                <div className="absolute inset-y-0 left-0 w-3 bg-[#5b3a1e] border-r-2 border-[#3a2a1a]" aria-hidden="true" />
+                <div className="absolute inset-y-0 right-0 w-3 bg-[#5b3a1e] border-l-2 border-[#3a2a1a]" aria-hidden="true" />
+                <div className="h-full p-6 sm:p-8 px-9 sm:px-11" style={texture('planks', 64)}>
+                  <div className="px-panel p-5 sm:p-6 h-full flex flex-col" style={texture('parchment', 64)}>
+                    <h2 className="font-pixel text-2xl text-bark uppercase mb-2">Send Us a Dispatch</h2>
+                    <p className="text-bark/70 text-sm mb-6">Fill in your inquiry and our coordinator team will respond within 48 hours.</p>
 
-              {submitted && (
-                <div className="mb-6 px-4 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                  <p className="text-emerald-300 text-xs font-medium">Message sent successfully! We'll get back to you soon.</p>
-                </div>
-              )}
+                    {submitted && (
+                      <div className="mb-6 px-4 py-3 px-panel--thin bg-forest text-cream" role="status">
+                        <p className="font-pixel text-lg tracking-wider">MESSAGE SENT!</p>
+                        <p className="text-sm font-semibold">Message sent successfully! We'll get back to you soon.</p>
+                      </div>
+                    )}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300 mb-1.5">Your Name *</label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      required
-                      placeholder="Jane Doe"
-                      className="w-full px-4 py-3 rounded-xl bg-[#05110d] border border-white/[0.08] text-sm text-stone-200 placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all min-h-[44px]"
-                    />
+                    <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div>
+                          <label htmlFor="contact-name" className={labelCls}>Your Name *</label>
+                          <input
+                            id="contact-name"
+                            type="text"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            required
+                            placeholder="Jane Doe"
+                            className="px-input w-full"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="contact-email" className={labelCls}>Email Address *</label>
+                          <input
+                            id="contact-email"
+                            type="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            required
+                            placeholder="jane@nmamit.in"
+                            className="px-input w-full"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label htmlFor="contact-subject" className={labelCls}>Subject</label>
+                        <input
+                          id="contact-subject"
+                          type="text"
+                          name="subject"
+                          value={formData.subject}
+                          onChange={handleChange}
+                          placeholder="Event partnership, volunteering, etc."
+                          className="px-input w-full"
+                        />
+                      </div>
+                      <div className="flex-1 flex flex-col">
+                        <label htmlFor="contact-message" className={labelCls}>Message *</label>
+                        <textarea
+                          id="contact-message"
+                          name="message"
+                          value={formData.message}
+                          onChange={handleChange}
+                          required
+                          rows={5}
+                          placeholder="Tell us about your proposal or question..."
+                          className="px-input w-full resize-none flex-1 min-h-[8rem]"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={sending}
+                        className="px-btn px-btn--grass"
+                      >
+                        {sending ? 'Dispatching Message...' : 'Send Message'}
+                        <Send className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                    </form>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300 mb-1.5">Email Address *</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                      placeholder="jane@nmamit.in"
-                      className="w-full px-4 py-3 rounded-xl bg-[#05110d] border border-white/[0.08] text-sm text-stone-200 placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all min-h-[44px]"
-                    />
-                  </div>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300 mb-1.5">Subject</label>
-                  <input
-                    type="text"
-                    name="subject"
-                    value={formData.subject}
-                    onChange={handleChange}
-                    placeholder="Event partnership, volunteering, etc."
-                    className="w-full px-4 py-3 rounded-xl bg-[#05110d] border border-white/[0.08] text-sm text-stone-200 placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all min-h-[44px]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300 mb-1.5">Message *</label>
-                  <textarea
-                    name="message"
-                    value={formData.message}
-                    onChange={handleChange}
-                    required
-                    rows={5}
-                    placeholder="Tell us about your proposal or question..."
-                    className="w-full px-4 py-3 rounded-xl bg-[#05110d] border border-white/[0.08] text-sm text-stone-200 placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all resize-none"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={sending}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-[#04110b] font-bold text-sm transition-all duration-300 shadow-lg shadow-emerald-500/20 disabled:opacity-50 cursor-pointer hover:scale-[1.02] min-h-[48px]"
-                >
-                  {sending ? 'Dispatching Message...' : 'Send Message'}
-                  <Send className="w-4 h-4" />
-                </button>
-              </form>
+              </div>
+              {/* cobblestone foundation */}
+              <div className="h-6 border-4 border-[#3a2a1a] cv-slot" style={texture('stone', 32)} aria-hidden="true" />
             </div>
 
             {/* Organization Info */}
-            <div className="space-y-6 flex flex-col justify-between">
-              <div className="rounded-3xl border border-white/[0.08] bg-[#091a14]/70 p-8 backdrop-blur-xl">
-                <h2 className="text-xl font-bold text-white mb-3 tracking-tight">About renature Club</h2>
-                <p className="text-stone-300 text-sm leading-relaxed mb-4">
+            <div className="space-y-8">
+              <Parchment>
+                <h2 className="font-pixel text-2xl text-bark uppercase mb-4">About renature Club</h2>
+                <p className="text-bark/85 leading-relaxed mb-4">
                   {siteContact.about_club_summary || 'renature is a student-led ecological and sustainability movement at NMAMIT dedicated to fostering biodiversity consciousness, hands-on afforestation, clean-up drives, and conservation education.'}
                 </p>
-                <p className="text-stone-400 text-xs leading-relaxed">
+                <p className="text-bark/70 text-sm leading-relaxed">
                   Whether you are passionate about botanical restoration, wildlife surveys, or campus greening, our community welcomes every student voice.
                 </p>
-              </div>
+              </Parchment>
 
-              <div className="rounded-3xl border border-white/[0.08] bg-[#091a14]/70 p-8 backdrop-blur-xl">
-                <h2 className="text-base font-bold text-white mb-4 tracking-tight flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-emerald-400" />
+              <Parchment>
+                <h2 className="font-pixel text-2xl text-bark uppercase mb-4">Visit Us</h2>
+                <div className="px-panel--thin min-h-48 p-5 flex items-center justify-center bg-[#b9d9a0]">
+                  <div className="text-center">
+                    <MapPin className="w-8 h-8 text-forest mx-auto mb-2" aria-hidden="true" />
+                    <p className="text-bark font-semibold text-sm">{siteContact.room}</p>
+                    <p className="text-bark/70 text-xs mt-1">{siteContact.address}</p>
+                  </div>
+                </div>
+              </Parchment>
+
+              <Parchment>
+                <h2 className="font-pixel text-lg text-bark uppercase mb-3 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-forest" aria-hidden="true" />
                   Club Desk & Field Hours
                 </h2>
-                <div className="p-3 rounded-xl bg-black/30 border border-white/[0.04] text-xs text-stone-300 leading-relaxed">
+                <p className="text-sm text-bark font-semibold leading-relaxed">
                   {siteContact.hours || 'Mon – Sat: 9:00 AM – 5:30 PM (Field Expeditions on Weekends)'}
-                </div>
-              </div>
+                </p>
+              </Parchment>
             </div>
-
           </div>
         </section>
-
       </div>
     </PublicLayout>
   );

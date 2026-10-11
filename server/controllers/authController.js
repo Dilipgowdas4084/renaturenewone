@@ -13,10 +13,12 @@ const PASSWORD_POLICY = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 // ─── register ─────────────────────────────────────────────────────────────────
 const register = async (req, res) => {
   try {
-    const { name, usn, phone, password, department, year } = req.body;
+    const { name, usn, phone, department, year } = req.body;
+    // Trimmed, matching how login reads it, so stray spaces can't lock an account out.
+    const password = String(req.body.password || '').trim();
     const rawEmail = (req.body.collegeEmail || req.body.email || '').trim().toLowerCase();
 
-    if (!PASSWORD_POLICY.test(password || '')) {
+    if (!PASSWORD_POLICY.test(password)) {
       return res.status(400).json({
         error: 'Password must be at least 8 characters with an uppercase letter, lowercase letter, and a number',
       });
@@ -56,7 +58,10 @@ const register = async (req, res) => {
 // ─── login ────────────────────────────────────────────────────────────────────
 const login = async (req, res) => {
   try {
-    const password = (req.body.password || '').trim();
+    // Registration hashes the password exactly as typed, so check it as typed
+    // and also trimmed (stray spaces from autofill/copy-paste).
+    const rawPassword = String(req.body.password || '');
+    const password = rawPassword.trim();
     const rawEmail = (req.body.collegeEmail || req.body.email || '').trim().toLowerCase();
 
     if (!rawEmail || !password) {
@@ -106,7 +111,8 @@ const login = async (req, res) => {
     let valid = false;
     if (user.password_hash) {
       try {
-        valid = await bcrypt.compare(password, user.password_hash);
+        valid = await bcrypt.compare(rawPassword, user.password_hash)
+          || (rawPassword !== password && await bcrypt.compare(password, user.password_hash));
       } catch (bErr) {
         console.warn('bcrypt compare error:', bErr.message);
       }

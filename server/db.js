@@ -362,6 +362,7 @@ const memoryDb = {
       president_dept: 'Biotechnology',
       vice_president_name: 'Shia Bangera',
       vice_president_dept: 'Mechanical Eng',
+      team_members: [],
       benefits: [
         'Gain hands-on experience in environmental conservation & fieldwork',
         'Connect with like-minded peers, researchers, and ecology experts',
@@ -506,7 +507,9 @@ function executeMemoryQuery(text, params = []) {
       }
     }
 
-    if (/e\.status\s*=\s*['"]published['"]/i.test(normalized)) {
+    if (/e\.status\s*<>\s*['"]draft['"]/i.test(normalized)) {
+      list = list.filter(e => e.status !== 'draft');
+    } else if (/e\.status\s*=\s*['"]published['"]/i.test(normalized)) {
       list = list.filter(e => e.status === 'published');
     } else if (/e\.status\s*=\s*\$(\d+)/i.test(normalized)) {
       const statusMatch = normalized.match(/e\.status\s*=\s*\$(\d+)/i);
@@ -1065,7 +1068,11 @@ const pool = {
     };
   },
   memoryDb,
-  nextId
+  nextId,
+  // Direct PostgreSQL access (no silent in-memory fallback), for callers that
+  // need to know whether a real write happened.
+  hasPostgres: () => Boolean(realPool),
+  pgQuery: (text, params) => realPool.query(text, params),
 };
 
 module.exports = pool;
