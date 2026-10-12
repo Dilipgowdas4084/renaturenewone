@@ -1,6 +1,6 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
-require('dotenv').config();
+require('./utils/loadEnv');
 
 // Pre-computed hashes for seed users:
 // Admin: renature.nmamit.nitte@gmail.com or admin@renature.org / Renature@2026 or Admin@123
@@ -409,8 +409,12 @@ const hasDbConfig = Boolean(
 
 if (hasDbConfig) {
   try {
+    // Hosted Postgres (e.g. Neon) requires SSL; a local server usually doesn't offer it.
+    const dbHost = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL).hostname : process.env.DB_HOST;
+    const isLocalDb = ['localhost', '127.0.0.1', '[::1]', '::1'].includes(dbHost);
     realPool = new Pool({
       connectionString: process.env.DATABASE_URL,
+      ssl: isLocalDb ? false : { rejectUnauthorized: false },
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       host: process.env.DB_HOST,
@@ -451,6 +455,61 @@ function executeMemoryQuery(text, params = []) {
     if (!row) return { rows: [] };
     const { id: uId, name, email, usn, phone, role } = row;
     return { rows: [{ id: uId, name, email, usn, phone, role }] };
+  }
+
+  if (/^SELECT\s+id,\s*name,\s*email,\s*usn\s+FROM\s+users\s+WHERE\s+LOWER\(email\)\s*=/i.test(normalized)) {
+    const email = (params[0] || '').toLowerCase().trim();
+    const row = memoryDb.users.find(u => (u.email || '').toLowerCase().trim() === email);
+    return { rows: row ? [{ id: row.id, name: row.name, email: row.email, usn: row.usn }] : [] };
+  }
+
+  if (/^SELECT\s+\*\s+FROM\s+users\s+WHERE\s+id\s*=/i.test(normalized)) {
+    const id = parseInt(params[0], 10);
+    const row = memoryDb.users.find(u => u.id === id);
+    return { rows: row ? [{ ...row }] : [] };
+  }
+
+  // Google sign-in lookups and linking
+  if (/^SELECT\s+\*\s+FROM\s+users\s+WHERE\s+google_id\s*=/i.test(normalized)) {
+    const row = memoryDb.users.find(u => u.google_id && u.google_id === params[0]);
+    return { rows: row ? [{ ...row }] : [] };
+  }
+
+  if (/^SELECT\s+id\s+FROM\s+users\s+WHERE\s+google_id\s*=\s*\$1\s+AND\s+id\s*<>/i.test(normalized)) {
+    const otherId = parseInt(params[1], 10);
+    const row = memoryDb.users.find(u => u.google_id === params[0] && u.id !== otherId);
+    return { rows: row ? [{ id: row.id }] : [] };
+  }
+
+  if (/^UPDATE\s+users\s+SET\s+google_id\s*=/i.test(normalized)) {
+    const [googleId, authProvider, id] = params;
+    const user = memoryDb.users.find(u => u.id === parseInt(id, 10));
+    if (!user) return { rows: [] };
+    user.google_id = googleId;
+    user.auth_provider = authProvider;
+    return { rows: [{ id: user.id }] };
+  }
+
+  if (/^INSERT\s+INTO\s+users\s*\(\s*name,\s*email,\s*role,\s*department,\s*year,\s*google_id,\s*auth_provider/i.test(normalized)) {
+    const [name, email, role, department, year, googleId, authProvider] = params;
+    const clean = (email || '').toLowerCase().trim();
+    if (memoryDb.users.some(u => (u.email || '').toLowerCase().trim() === clean)) return { rows: [] }; // ON CONFLICT DO NOTHING
+    const newUser = {
+      id: nextId.users++,
+      name,
+      email: clean,
+      usn: null,
+      phone: null,
+      password_hash: null,
+      role: role || 'member',
+      department,
+      year,
+      google_id: googleId,
+      auth_provider: authProvider,
+      created_at: new Date()
+    };
+    memoryDb.users.push(newUser);
+    return { rows: [{ id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role, department: newUser.department, year: newUser.year }] };
   }
 
   if (/^UPDATE\s+users\s+SET\s+password_hash\s*=/i.test(normalized)) {

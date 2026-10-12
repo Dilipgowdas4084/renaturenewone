@@ -9,11 +9,18 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
-    // Running the client on its own (`npm run dev` here): send API calls to the
-    // Express server (`npm run dev` at the repo root, port 3000) instead of
-    // letting Vite answer them with index.html.
+    port: 5173,
+    // Running the client on its own (`npm run dev` at the repo root starts both):
+    // send API calls to the Express server on port 3000 instead of letting Vite
+    // answer them with index.html.
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
+    watch: {
+      ignored: ['**/dist/**'],
     },
   },
 });

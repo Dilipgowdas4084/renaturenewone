@@ -5,9 +5,9 @@ import * as yup from 'yup';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { storeTokens } from '../utils/auth';
-import { 
-  ArrowLeft, Leaf, Lock, Mail, ArrowRight, KeyRound, 
-  CheckCircle2, Hash, RefreshCw, ShieldCheck, Sparkles 
+import {
+  ArrowLeft, Leaf, Lock, Mail, ArrowRight, KeyRound,
+  CheckCircle2, Hash, RefreshCw, ShieldCheck, Eye, EyeOff
 } from 'lucide-react';
 
 const SOCIAL_LINKS = [
@@ -52,18 +52,24 @@ export default function Login() {
   const [apiError, setApiError] = useState('');
   const [apiSuccess, setApiSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Forgot Password Flow States: null | 'request' | 'verify' | 'reset'
   const [forgotStep, setForgotStep] = useState(null);
-  
+
   // Recovery data state
   const [recoveryEmail, setRecoveryEmail] = useState('');
   const [recoveryUsn, setRecoveryUsn] = useState('');
   const [enteredOtp, setEnteredOtp] = useState('');
-  const [demoOtp, setDemoOtp] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [isDispatched, setIsDispatched] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
+  // Password visibility state
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   // Resend cooldown timer
   const [countdown, setCountdown] = useState(0);
 
@@ -75,9 +81,9 @@ export default function Login() {
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  const { 
-    register, 
-    handleSubmit, 
+  const {
+    register,
+    handleSubmit,
     formState: { errors },
     setValue
   } = useForm({
@@ -106,11 +112,101 @@ export default function Login() {
     }
   };
 
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  // Google credential response handler
+  const handleGoogleCredentialResponse = async (response) => {
+    if (!response?.credential) {
+      setApiError('Google sign-in was cancelled or failed.');
+      return;
+    }
+    setApiError('');
+    setApiSuccess('');
+    setIsLoading(true);
+    try {
+      const res = await axios.post('/api/auth/google', {
+        credential: response.credential,
+      });
+      storeTokens({ token: res.data.token, refreshToken: res.data.refreshToken });
+
+      if (res.data.user.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/member-dashboard');
+      }
+    } catch (error) {
+      console.error('Google login error:', error);
+      const data = error.response?.data;
+      if (data?.code === 'ACCOUNT_LINKING_REQUIRED') {
+        setApiError(data.error || 'An account with this email already exists. Please log in with your password to link your Google account.');
+      } else if (data?.code === 'DOMAIN_NOT_ALLOWED') {
+        setApiError(data.error || 'Only official @nmamit.in Google accounts are permitted.');
+      } else if (data?.code === 'EMAIL_NOT_VERIFIED') {
+        setApiError('Your Google account email has not been verified by Google.');
+      } else {
+        setApiError(data?.error || 'Google sign-in failed. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initialize Google Identity Services when on the standard login screen
+  useEffect(() => {
+    if (forgotStep !== null) return;
+    if (!googleClientId) return;
+
+    let checkInterval = null;
+    const initGsi = () => {
+      if (window.google?.accounts?.id) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: googleClientId,
+            callback: handleGoogleCredentialResponse,
+            auto_select: false,
+            cancel_on_tap_outside: true,
+          });
+
+          const btnEl = document.getElementById('googleSignInBtn');
+          if (btnEl) {
+            btnEl.innerHTML = '';
+            window.google.accounts.id.renderButton(btnEl, {
+              theme: 'filled_black',
+              size: 'large',
+              shape: 'pill',
+              width: 340,
+              text: 'signin_with',
+            });
+          }
+        } catch (err) {
+          console.error('Failed to initialize Google Sign-In:', err);
+        }
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      initGsi();
+    } else {
+      checkInterval = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          clearInterval(checkInterval);
+          initGsi();
+        }
+      }, 300);
+    }
+
+    return () => {
+      if (checkInterval) clearInterval(checkInterval);
+    };
+  }, [forgotStep, googleClientId]);
+
   // STEP 1: Send OTP to Gmail
   const handleSendOtp = async (e) => {
     e.preventDefault();
     setApiError('');
     setApiSuccess('');
+    setResetToken('');
+    setIsDispatched(false);
 
     if (!recoveryEmail || !recoveryEmail.includes('@')) {
       setApiError('Please enter a valid Gmail or college email address.');
@@ -124,15 +220,17 @@ export default function Login() {
         usn: recoveryUsn,
       });
 
-      setApiSuccess(res.data?.message || 'Verification code sent to your Gmail inbox.');
-      if (res.data?.otp_preview) {
-        setDemoOtp(res.data.otp_preview);
+      const confirmed = Boolean(res.data?.dispatched);
+      setIsDispatched(confirmed);
+      setApiSuccess(res.data?.message || 'If an account with that email exists, a verification code may have been sent. Please check your inbox and spam folder.');
+
+      if (confirmed) {
+        setForgotStep('verify');
+        setCountdown(60);
       }
-      setForgotStep('verify');
-      setCountdown(60); // 60s cooldown
     } catch (error) {
-      console.error('Send OTP error:', error);
-      setApiError(error.response?.data?.error || 'Could not find an account with this email address.');
+      const msg = error.response?.data?.error || 'Something went wrong. Please try again.';
+      setApiError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -156,6 +254,10 @@ export default function Login() {
         collegeEmail: recoveryEmail,
         otp: cleanOtp,
       });
+
+      if (res.data?.resetToken) {
+        setResetToken(res.data.resetToken);
+      }
 
       setApiSuccess(res.data?.message || 'Code verified successfully! Please set your new password.');
       setForgotStep('reset');
@@ -192,20 +294,21 @@ export default function Login() {
     try {
       const res = await axios.post('/api/auth/reset-password', {
         collegeEmail: recoveryEmail,
-        otp: enteredOtp,
+        resetToken: resetToken,
         newPassword: newPassword,
       });
 
       setApiSuccess(res.data?.message || 'Password reset successful! You can now log in.');
       setValue('collegeEmail', recoveryEmail);
-      
+
       // Reset state and switch back to login
       setTimeout(() => {
         setForgotStep(null);
         setNewPassword('');
         setConfirmPassword('');
         setEnteredOtp('');
-        setDemoOtp('');
+        setResetToken('');
+        setIsDispatched(false);
       }, 1800);
     } catch (error) {
       console.error('Reset password error:', error);
@@ -227,8 +330,8 @@ export default function Login() {
 
       {/* Top Header Bar with Home Navigation */}
       <div className="relative z-20 w-full max-w-4xl flex items-center justify-between mb-4 px-1">
-        <Link 
-          to="/" 
+        <Link
+          to="/"
           className="inline-flex items-center gap-2 text-stone-300 hover:text-white transition-all bg-[#091a14]/90 hover:bg-[#091a14] backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-xs font-semibold uppercase tracking-wider min-h-[44px]"
         >
           <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" />
@@ -250,7 +353,7 @@ export default function Login() {
               <Leaf className="w-3.5 h-3.5" />
               Member Access Portal
             </div>
-            
+
             <h1 className="text-4xl lg:text-5xl font-extrabold text-white leading-tight tracking-tight mb-4">
               {forgotStep ? (
                 <>
@@ -266,7 +369,11 @@ export default function Login() {
             </h1>
             <p className="text-stone-300 text-sm leading-relaxed max-w-sm">
               {forgotStep === 'request' && 'Enter your registered Gmail to receive a one-time 6-digit security code.'}
-              {forgotStep === 'verify' && 'Check your Gmail inbox and enter the 6-digit OTP code to verify your identity.'}
+              {forgotStep === 'verify' && (
+                isDispatched
+                  ? 'Check your Gmail inbox and enter the 6-digit OTP code to verify your identity.'
+                  : 'If your account is registered, check your inbox and spam folder for the 6-digit code.'
+              )}
               {forgotStep === 'reset' && 'Identity confirmed! Create a new secure password to access your renature steward account.'}
               {!forgotStep && 'Sign in to manage your campus drives, track earned Eco-Points, and view verified volunteer certifications.'}
             </p>
@@ -276,11 +383,11 @@ export default function Login() {
             <p className="text-xs text-stone-400 font-medium mb-3">Community Hub</p>
             <div className="flex gap-2">
               {SOCIAL_LINKS.map(s => (
-                <a 
-                  key={s.name} 
-                  href={s.href} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                <a
+                  key={s.name}
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-stone-400 hover:text-emerald-300 hover:border-emerald-500/30 transition-all min-h-[44px] min-w-[44px]"
                   title={s.name}
                 >
@@ -293,7 +400,7 @@ export default function Login() {
 
         {/* Right panel — form */}
         <div className="w-full md:w-[440px] bg-[#071712]/95 backdrop-blur-2xl p-6 sm:p-8 md:p-12 flex flex-col justify-center">
-          
+
           {/* Header */}
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-white tracking-tight mb-1">
@@ -305,7 +412,11 @@ export default function Login() {
             <p className="text-xs text-stone-400">
               {!forgotStep && 'Enter your credentials to access the platform.'}
               {forgotStep === 'request' && 'We will send a 6-digit verification code to your Gmail.'}
-              {forgotStep === 'verify' && `Verification code dispatched to ${recoveryEmail}`}
+              {forgotStep === 'verify' && (
+                isDispatched
+                  ? `Verification code dispatched to ${recoveryEmail}. Please check your inbox and spam folder.`
+                  : `If an account with that email exists, a verification code may have been sent. Please check your inbox and spam folder.`
+              )}
               {forgotStep === 'reset' && 'Choose a fresh secure password for your steward account.'}
             </p>
           </div>
@@ -381,6 +492,8 @@ export default function Login() {
                   setForgotStep(null);
                   setApiError('');
                   setApiSuccess('');
+                  setResetToken('');
+                  setIsDispatched(false);
                 }}
                 className="w-full py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-stone-300 hover:text-white text-xs font-semibold transition-all mt-1"
               >
@@ -392,25 +505,6 @@ export default function Login() {
           {/* ─── STAGE 2: CONFIRM OTP ─── */}
           {forgotStep === 'verify' && (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
-              {/* Demo Mode / Instant Fill Notification */}
-              {demoOtp && (
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span className="text-xs text-stone-300">
-                      Code: <strong className="text-emerald-300 font-mono tracking-widest">{demoOtp}</strong>
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEnteredOtp(demoOtp)}
-                    className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-500 text-black hover:bg-emerald-400 cursor-pointer"
-                  >
-                    Auto-Fill
-                  </button>
-                </div>
-              )}
-
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300">
                   Enter 6-Digit OTP Code
@@ -428,7 +522,11 @@ export default function Login() {
                   />
                 </div>
                 <p className="text-[11px] text-stone-400">
-                  Check your inbox / spam folder for the email from <strong>renature NMAMIT</strong>.
+                  {isDispatched ? (
+                    <>Check your inbox / spam folder for the email from <strong>renature NMAMIT</strong>.</>
+                  ) : (
+                    <>If an account exists, check your inbox / spam folder for the email from <strong>renature NMAMIT</strong>.</>
+                  )}
                 </p>
               </div>
 
@@ -464,6 +562,8 @@ export default function Login() {
                     setForgotStep('request');
                     setApiError('');
                     setApiSuccess('');
+                    setResetToken('');
+                    setIsDispatched(false);
                   }}
                   className="text-xs text-stone-400 hover:text-white"
                 >
@@ -488,13 +588,25 @@ export default function Login() {
                 <div className="relative">
                   <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
                   <input
-                    type="password"
+                    type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Min 8 chars, 1 uppercase, 1 number"
-                    className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-4 text-xs text-stone-200 placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                    className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-10 text-xs text-stone-200 placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(prev => !prev)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-200 transition-colors p-0.5 focus:outline-none cursor-pointer"
+                    aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+                  >
+                    {showNewPassword ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -505,13 +617,25 @@ export default function Login() {
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
                   <input
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Re-type new password"
-                    className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-4 text-xs text-stone-200 placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                    className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-10 text-xs text-stone-200 placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(prev => !prev)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-200 transition-colors p-0.5 focus:outline-none cursor-pointer"
+                    aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -534,69 +658,118 @@ export default function Login() {
 
           {/* ─── STANDARD LOGIN FORM ─── */}
           {!forgotStep && (
-            <form onSubmit={handleSubmit(onLoginSubmit)} className="space-y-4">
-              {/* Email */}
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300">College Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                  <input
-                    {...register('collegeEmail')}
-                    type="email"
-                    placeholder="student@nmamit.in"
-                    className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-3 pl-10 pr-4 text-sm text-stone-200 placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                  />
+            <>
+              <form onSubmit={handleSubmit(onLoginSubmit)} className="space-y-4">
+                {/* Email */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300">College Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                    <input
+                      {...register('collegeEmail')}
+                      type="email"
+                      placeholder="student@nmamit.in"
+                      className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-3 pl-10 pr-4 text-sm text-stone-200 placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                    />
+                  </div>
+                  {errors.collegeEmail && (
+                    <p className="text-rose-400 text-xs mt-1">{errors.collegeEmail.message}</p>
+                  )}
                 </div>
-                {errors.collegeEmail && (
-                  <p className="text-rose-400 text-xs mt-1">{errors.collegeEmail.message}</p>
-                )}
+
+                {/* Password */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300">Password</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotStep('request');
+                        setApiError('');
+                        setApiSuccess('');
+                      }}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors cursor-pointer hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                    <input
+                      {...register('password')}
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-3 pl-10 pr-11 text-sm text-stone-200 placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(prev => !prev)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-200 transition-colors p-0.5 focus:outline-none cursor-pointer"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="text-rose-400 text-xs mt-1">{errors.password.message}</p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-[#04110b] font-bold text-sm transition-all duration-300 shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01] disabled:opacity-50 mt-3"
+                >
+                  {isLoading ? (
+                    <span>Verifying credentials...</span>
+                  ) : (
+                    <>
+                      <span>Sign In to renature</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {/* Divider */}
+              <div className="relative my-5">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/[0.08]" />
+                </div>
+                <div className="relative flex justify-center text-[11px] uppercase">
+                  <span className="bg-[#071712] px-3 text-stone-500 font-semibold tracking-wider">
+                    Or continue with
+                  </span>
+                </div>
               </div>
 
-              {/* Password */}
-              <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-stone-300">Password</label>
+              {/* Google Sign-In Container */}
+              <div className="flex flex-col items-center justify-center space-y-2">
+                <div id="googleSignInBtn" className="w-full flex justify-center min-h-[44px]" />
+                {!googleClientId && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setForgotStep('request');
-                      setApiError('');
-                      setApiSuccess('');
-                    }}
-                    className="text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors cursor-pointer hover:underline"
+                    onClick={() => setApiError('Google Sign-In requires VITE_GOOGLE_CLIENT_ID to be configured in your environment.')}
+                    className="w-full py-3 px-4 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-stone-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-2.5 transition-all min-h-[44px]"
                   >
-                    Forgot password?
+                    <svg className="w-4 h-4" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                    </svg>
+                    <span>Sign in with Google (@nmamit.in)</span>
                   </button>
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                  <input
-                    {...register('password')}
-                    type="password"
-                    placeholder="••••••••"
-                    className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-3 pl-10 pr-4 text-sm text-stone-200 placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                  />
-                </div>
-                {errors.password && (
-                  <p className="text-rose-400 text-xs mt-1">{errors.password.message}</p>
                 )}
+                <p className="text-[11px] text-stone-500 text-center leading-tight">
+                  Institutional accounts only &bull; Domain must be <strong className="text-stone-400">@nmamit.in</strong>
+                </p>
               </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-[#04110b] font-bold text-sm transition-all duration-300 shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01] disabled:opacity-50 mt-3"
-              >
-                {isLoading ? (
-                  <span>Verifying credentials...</span>
-                ) : (
-                  <>
-                    <span>Sign In to renature</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </form>
+            </>
           )}
 
           <div className="mt-8 pt-6 border-t border-white/[0.06] text-center">
