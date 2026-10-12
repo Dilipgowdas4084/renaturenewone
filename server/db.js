@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-require('dotenv').config();
+require('./utils/loadEnv');
 
 const pool = new Pool(
   process.env.DATABASE_URL
@@ -20,5 +20,8 @@ const pool = new Pool(
 pool.on('error', (err) => {
   console.error('Unexpected error on idle Postgres client:', err);
 });
+
+pool.hasPostgres = () => true;
+pool.memoryDb = null;
 
 module.exports = pool;

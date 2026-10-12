@@ -8,7 +8,15 @@ import { storeTokens } from '../utils/auth';
 
 const schema = yup.object().shape({
   name: yup.string().required('Full Name is required'),
-  collegeEmail: yup.string().email('Must be a valid email').required('Email is required'),
+  collegeEmail: yup
+    .string()
+    .email('Must be a valid email')
+    .test('is-nmamit', 'Registration is restricted to NMAMIT institutional email addresses (@nmamit.in)', (val) => {
+      if (!val) return false;
+      const parts = val.toLowerCase().trim().split('@');
+      return parts.length === 2 && parts[1] === 'nmamit.in';
+    })
+    .required('Email is required'),
   usn: yup.string().required('USN is required'),
   phone: yup.string().required('Phone is required'),
   password: yup
