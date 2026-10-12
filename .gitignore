@@ -5,5 +5,9 @@ dist/
 .env.*
 !.env.example
 
+.env
+.env.*
+!.env.example
+
 # Website content saved by the admin page when no PostgreSQL is configured
 server/data/
