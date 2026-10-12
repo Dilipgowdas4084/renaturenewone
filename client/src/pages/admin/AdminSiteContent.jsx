@@ -29,13 +29,11 @@ const DEFAULT_CONTENT = {
   },
   contact: {
     email: 'renature.nmamit.nitte@gmail.com',
-    phone: '+91 8258 281263 / +91 94812 34567',
+    phone: '+91 733 846 1410 / +91 93217 62973',
     address: 'NMAM Institute of Technology, Nitte, Karkala Taluk, Udupi - 574110, Karnataka',
-    room: 'Student Activity Center, Cabin 104, Green Wing',
     hours: 'Mon – Sat: 9:00 AM – 5:30 PM (Field Expeditions on Weekends)',
     instagram: 'https://instagram.com/renature_nmamit/',
     linkedin: 'https://linkedin.com/company/renature-nmamit/',
-    twitter: 'https://x.com/renature_club',
     about_club_summary: 'renature is a student-led ecological and sustainability movement at NMAMIT dedicated to fostering biodiversity consciousness, hands-on afforestation, clean-up drives, and conservation education.'
   },
   home: {
@@ -534,32 +532,17 @@ export default function AdminSiteContent() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-stone-300 mb-1">Room / Cabin Location</label>
-                <input
-                  type="text"
-                  value={content.contact.room}
-                  onChange={(e) => setContent({
-                    ...content,
-                    contact: { ...content.contact, room: e.target.value }
-                  })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-300 mb-1">Operating Hours</label>
-                <input
-                  type="text"
-                  value={content.contact.hours}
-                  onChange={(e) => setContent({
-                    ...content,
-                    contact: { ...content.contact, hours: e.target.value }
-                  })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-stone-300 mb-1">Operating Hours</label>
+              <input
+                type="text"
+                value={content.contact.hours}
+                onChange={(e) => setContent({
+                  ...content,
+                  contact: { ...content.contact, hours: e.target.value }
+                })}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500"
+              />
             </div>
 
             <div>
@@ -605,19 +588,6 @@ export default function AdminSiteContent() {
                   onChange={(e) => setContent({
                     ...content,
                     contact: { ...content.contact, linkedin: e.target.value }
-                  })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-300 mb-1">X / Twitter URL</label>
-                <input
-                  type="text"
-                  value={content.contact.twitter}
-                  onChange={(e) => setContent({
-                    ...content,
-                    contact: { ...content.contact, twitter: e.target.value }
                   })}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500"
                 />

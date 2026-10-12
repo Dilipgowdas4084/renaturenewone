@@ -375,11 +375,9 @@ const memoryDb = {
       email: 'renature.nmamit.nitte@gmail.com',
       phone: '+91 733 846 1410 / +91 93217 62973',
       address: 'NMAM Institute of Technology, Nitte, Karkala Taluk, Udupi - 574110, Karnataka',
-      room: 'Student Activity Center, Cabin 104, Green Wing',
       hours: 'Mon – Sat: 9:00 AM – 5:30 PM (Field Expeditions on Weekends)',
       instagram: 'https://instagram.com/renature_nmamit/',
       linkedin: 'https://linkedin.com/company/renature-nmamit/',
-      twitter: 'https://x.com/renature_club',
       about_club_summary: 'renature is a student-led ecological and sustainability movement at NMAMIT dedicated to fostering biodiversity consciousness, hands-on afforestation, clean-up drives, and conservation education.'
     },
     home: {
