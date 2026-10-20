@@ -307,9 +307,24 @@ body {
 @keyframes px-flicker { 0%, 100% { opacity: 1; } 30% { opacity: 0.65; } 60% { opacity: 0.9; } }
 .px-flicker { animation: px-flicker var(--dur, 1.4s) steps(3) infinite; animation-delay: var(--delay, 0s); }
 
+/* ─── Cave (login / register): explorer walks out of the dark toward the viewer ─── */
+@keyframes cave-approach {
+  0%   { transform: translate(230px, 122px) scale(0.1); opacity: 0; }
+  8%   { opacity: 1; }
+  100% { transform: translate(196px, 252px) scale(0.85); opacity: 1; }
+}
+.cave-walker { transform: translate(196px, 252px) scale(0.85); animation: cave-approach 9s cubic-bezier(0.55, 0, 0.75, 0.6) 0.3s both; }
+/* walking frames run only while approaching (20 x 0.45s), then the explorer stands still */
+.cave-step-a { animation: px-frame-a 0.45s steps(1) 0.3s 20; }
+.cave-step-b { opacity: 0; animation: px-frame-b 0.45s steps(1) 0.3s 20; }
+.cave-stride { animation: px-bob 0.45s steps(2) 0.3s 20; }
+@keyframes cave-drip { 0% { transform: translateY(0); opacity: 0; } 10% { opacity: 1; } 70% { opacity: 1; } 100% { transform: translateY(70px); opacity: 0; } }
+.cave-drip { animation: cave-drip var(--dur, 3s) ease-in infinite; animation-delay: var(--delay, 0s); }
+
 @media (prefers-reduced-motion: reduce) {
   .px-drift, .px-walk, .px-bob, .px-sway, .px-leaf, .px-fly, .px-twinkle,
-  .px-firefly, .px-shimmer, .px-bounce, .px-sign-swing, .px-flap-a, .px-flap-b, .px-flicker {
+  .px-firefly, .px-shimmer, .px-bounce, .px-sign-swing, .px-flap-a, .px-flap-b, .px-flicker,
+  .cave-walker, .cave-step-a, .cave-step-b, .cave-stride, .cave-drip {
     animation: none !important;
   }
   .px-frame-b, .px-flap-b { opacity: 0; }

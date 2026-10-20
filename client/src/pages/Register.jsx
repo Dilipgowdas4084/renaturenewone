@@ -5,6 +5,8 @@ import * as yup from 'yup';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { storeTokens } from '../utils/auth';
+import CaveScene from '../components/pixel/CaveScene';
+import { texture } from '../utils/pixelTextures';
 import { ArrowLeft, User, Mail, Hash, Phone, Lock, ArrowRight, TreePine } from 'lucide-react';
 
 const schema = yup.object().shape({
@@ -64,148 +66,129 @@ export default function Register() {
     }
   };
 
+  // ─── Pixel cave UI (presentation only) ───
+  const labelCls = 'block font-pixel text-xs tracking-[0.15em] uppercase text-earth mb-2';
+  const iconCls = 'absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-earth pointer-events-none';
+  const inputCls = 'px-input w-full !pl-10';
+  const errCls = 'text-[#9c3d33] text-sm font-semibold mt-1.5';
+
   return (
-    <div
-      className="min-h-[100dvh] w-full flex flex-col items-center justify-center bg-cover bg-center p-3 sm:p-6 md:p-8 relative selection:bg-emerald-500/20 selection:text-emerald-300 py-8 sm:py-12"
-      style={{
-        backgroundImage: "url('/IMG_9279.jpeg')",
-      }}
-    >
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-[#040d0a]/88 backdrop-blur-sm" />
+    <div className="relative min-h-[100dvh] w-full font-body text-cream overflow-x-hidden selection:bg-sun/40 selection:text-bark">
+      <CaveScene />
 
-      {/* Top Header Bar with Home Navigation */}
-      <div className="relative z-20 w-full max-w-4xl flex items-center justify-between mb-4 px-1">
-        <Link 
-          to="/" 
-          className="inline-flex items-center gap-2 text-stone-300 hover:text-white transition-all bg-[#091a14]/90 hover:bg-[#091a14] backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-xs font-semibold uppercase tracking-wider min-h-[44px]"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Return Home</span>
-        </Link>
-        <div className="flex items-center gap-2 text-xs text-stone-400">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="hidden sm:inline">NMAMIT Portal</span>
+      <div className="relative z-10 min-h-[100dvh] flex flex-col items-center p-4 sm:p-6 md:p-8">
+        {/* Top bar */}
+        <div className="w-full max-w-5xl flex items-center justify-between mb-6">
+          <Link to="/" className="px-btn px-btn--stone px-btn--sm">
+            <ArrowLeft className="w-4 h-4" />
+            <span>Return Home</span>
+          </Link>
+          <span className="hidden sm:inline-flex items-center gap-2 font-pixel text-sm uppercase tracking-[0.15em] text-sun px-shadow-sm">
+            <span className="w-2 h-2 bg-[#86c95e] animate-pulse" />
+            NMAMIT Portal
+          </span>
         </div>
-      </div>
 
-      {/* Card Container */}
-      <div className="relative z-10 flex flex-col md:flex-row w-full max-w-4xl rounded-3xl overflow-hidden border border-white/[0.08] shadow-2xl shadow-black/80 backdrop-blur-2xl">
+        <div className="w-full max-w-5xl flex-1 grid grid-cols-1 md:grid-cols-[1fr_460px] gap-8 items-start md:items-center">
 
-        {/* Left panel — branding */}
-        <div className="hidden md:flex flex-1 flex-col justify-between p-10 lg:p-12 bg-gradient-to-br from-[#0e2c21]/95 via-[#081a13]/95 to-[#05130d]/95 border-r border-emerald-500/15">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold uppercase tracking-wider mb-8 shadow-sm">
-              <TreePine className="w-3.5 h-3.5 text-emerald-400" />
-              Join the Ecological Movement
+          {/* Left — branding (the explorer walks up below it) */}
+          <div className="hidden md:block self-start pt-4">
+            <div className="inline-block px-panel px-panel--thin px-6 py-4" style={texture('planks', 48)}>
+              <p className="font-pixel text-sun text-xs tracking-[0.3em] mb-1 flex items-center gap-2">
+                <TreePine className="w-3.5 h-3.5" />
+                JOIN THE ECOLOGICAL MOVEMENT
+              </p>
+              <h1 className="px-title text-cream text-4xl lg:text-5xl tracking-wide leading-tight">Join Our Community</h1>
             </div>
-            <h1 className="text-4xl lg:text-5xl font-black text-white leading-tight tracking-tight mb-4">
-              Join Our <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">Community</span>
-            </h1>
-            <p className="text-stone-200 text-sm leading-relaxed max-w-xs">
+            <p className="mt-5 text-cream/90 max-w-sm leading-relaxed" style={{ textShadow: '0 2px 0 rgba(0,0,0,0.6)' }}>
               Become part of renature. Create your steward account to register for weekend expeditions and document campus biodiversity.
+            </p>
+            <p className="mt-5 flex items-center gap-2 font-pixel text-sm uppercase tracking-[0.12em] text-cream/75 px-shadow-sm">
+              <span className="w-2 h-2 bg-[#86c95e]" />
+              NMAMIT Student Environmental Guild
             </p>
           </div>
 
-          <div className="pt-6 border-t border-white/[0.08] text-xs text-stone-400 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            NMAMIT Student Environmental Guild
-          </div>
-        </div>
-
-        {/* Right panel — form */}
-        <div className="w-full md:w-[460px] bg-[#081a14]/95 backdrop-blur-2xl p-6 sm:p-8 md:p-10 flex flex-col justify-between">
-          <div>
+          {/* Right — form */}
+          <div className="px-panel p-6 sm:p-8" style={texture('parchment', 64)}>
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-white tracking-tight mb-1">Create Account</h2>
-              <p className="text-xs text-stone-400">Register with your college details.</p>
+              <h2 className="font-pixel text-2xl uppercase text-bark mb-1">Create Account</h2>
+              <p className="text-sm text-bark/70">Register with your college details.</p>
             </div>
 
             {apiError && (
-              <div className="mb-6 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/25">
-                <p className="text-rose-300 text-xs text-center font-medium">{apiError}</p>
+              <div className="mb-5 px-4 py-3 px-panel--thin bg-[#9c3d33] text-cream" role="alert">
+                <p className="text-sm text-center font-semibold">⚠ {apiError}</p>
               </div>
             )}
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
               {/* Full Name */}
-              <div className="space-y-1">
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-300">Full Name</label>
+              <div>
+                <label className={labelCls}>Full Name</label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                  <input 
-                    {...register("name")} 
+                  <User className={iconCls} />
+                  <input
+                    {...register("name")}
                     type="text"
                     placeholder="Alex Morgan"
-                    className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-4 text-xs text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                    className={inputCls}
                   />
                 </div>
-                {errors.name && (
-                  <p className="text-rose-400 text-[11px] mt-0.5">{errors.name.message}</p>
-                )}
+                {errors.name && <p className={errCls}>{errors.name.message}</p>}
               </div>
 
               {/* College Email */}
-              <div className="space-y-1">
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-300">College Email</label>
+              <div>
+                <label className={labelCls}>College Email</label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                  <input 
-                    {...register("collegeEmail")} 
+                  <Mail className={iconCls} />
+                  <input
+                    {...register("collegeEmail")}
                     type="email"
                     placeholder="student@nmamit.in"
-                    className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-4 text-xs text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                    className={inputCls}
                   />
                 </div>
-                {errors.collegeEmail && (
-                  <p className="text-rose-400 text-[11px] mt-0.5">{errors.collegeEmail.message}</p>
-                )}
+                {errors.collegeEmail && <p className={errCls}>{errors.collegeEmail.message}</p>}
               </div>
 
               {/* USN & Phone in 2 columns */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-300">USN / Roll</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className={labelCls}>USN / Roll</label>
                   <div className="relative">
-                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-                    <input 
-                      {...register("usn")} 
+                    <Hash className={iconCls} />
+                    <input
+                      {...register("usn")}
                       type="text"
                       placeholder="4NM22CS001"
-                      className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-2.5 pl-9 pr-3 text-xs text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all uppercase"
+                      className={`${inputCls} uppercase`}
                     />
                   </div>
-                  {errors.usn && (
-                    <p className="text-rose-400 text-[11px] mt-0.5">{errors.usn.message}</p>
-                  )}
+                  {errors.usn && <p className={errCls}>{errors.usn.message}</p>}
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-300">Phone</label>
+                <div>
+                  <label className={labelCls}>Phone</label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-                    <input 
-                      {...register("phone")} 
+                    <Phone className={iconCls} />
+                    <input
+                      {...register("phone")}
                       type="tel"
                       placeholder="+91 9876543210"
-                      className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-2.5 pl-9 pr-3 text-xs text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                      className={inputCls}
                     />
                   </div>
-                  {errors.phone && (
-                    <p className="text-rose-400 text-[11px] mt-0.5">{errors.phone.message}</p>
-                  )}
+                  {errors.phone && <p className={errCls}>{errors.phone.message}</p>}
                 </div>
               </div>
 
               {/* Department & Year in 2 columns */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-300">Department</label>
-                  <select 
-                    {...register("department")} 
-                    className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                  >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className={labelCls}>Department</label>
+                  <select {...register("department")} className="px-input w-full cursor-pointer">
                     <option value="Computer Science">Computer Science</option>
                     <option value="Electronics & Communication">Electronics & Comm.</option>
                     <option value="Mechanical Engineering">Mechanical Eng.</option>
@@ -215,70 +198,57 @@ export default function Register() {
                     <option value="Electrical & Electronics">Electrical & Electronics</option>
                     <option value="Environmental Sciences">Environmental Sciences</option>
                   </select>
-                  {errors.department && (
-                    <p className="text-rose-400 text-[11px] mt-0.5">{errors.department.message}</p>
-                  )}
+                  {errors.department && <p className={errCls}>{errors.department.message}</p>}
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-300">Academic Year</label>
-                  <select 
-                    {...register("year")} 
-                    className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                  >
+                <div>
+                  <label className={labelCls}>Academic Year</label>
+                  <select {...register("year")} className="px-input w-full cursor-pointer">
                     <option value="1st Year">1st Year</option>
                     <option value="2nd Year">2nd Year</option>
                     <option value="3rd Year">3rd Year</option>
                     <option value="4th Year">4th Year</option>
                   </select>
-                  {errors.year && (
-                    <p className="text-rose-400 text-[11px] mt-0.5">{errors.year.message}</p>
-                  )}
+                  {errors.year && <p className={errCls}>{errors.year.message}</p>}
                 </div>
               </div>
 
               {/* Password */}
-              <div className="space-y-1">
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-300">Password</label>
+              <div>
+                <label className={labelCls}>Password</label>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                  <input 
-                    type="password" 
-                    {...register("password")} 
+                  <Lock className={iconCls} />
+                  <input
+                    type="password"
+                    {...register("password")}
                     placeholder="Min 8 chars, 1 uppercase, 1 symbol"
-                    className="w-full bg-[#040d0a] border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-4 text-xs text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                    className={inputCls}
                   />
                 </div>
-                {errors.password && (
-                  <p className="text-rose-400 text-[11px] mt-0.5">{errors.password.message}</p>
-                )}
+                {errors.password && <p className={errCls}>{errors.password.message}</p>}
               </div>
 
               {/* Submit Button */}
-              <button 
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-[#04110b] font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01] disabled:opacity-50 mt-3"
-              >
+              <button type="submit" disabled={isLoading} className="px-btn px-btn--grass w-full mt-1">
                 {isLoading ? (
                   <span>Creating Account...</span>
                 ) : (
                   <>
                     <span>Register Member Account</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
             </form>
-          </div>
 
-          {/* Login Link */}
-          <p className="text-center text-xs text-stone-400 mt-6 pt-4 border-t border-white/[0.06]">
-            Already a member?{' '}
-            <Link to="/login" className="text-emerald-400 hover:text-emerald-300 font-semibold underline underline-offset-4">
-              Sign in
-            </Link>
-          </p>
+            {/* Login Link */}
+            <p className="text-center text-sm text-bark/75 mt-6 pt-5 border-t-2 border-dashed border-earth/30">
+              Already a member?{' '}
+              <Link to="/login" className="text-forest hover:text-deep font-bold underline underline-offset-4">
+                Sign in
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>
