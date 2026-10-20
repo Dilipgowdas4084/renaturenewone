@@ -30,6 +30,7 @@ export default function AdminPointsLeaderboard() {
   // Edit Points Modal
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editData, setEditData] = useState({
+    key: '',
     student_id: '',
     full_name: '',
     department: '',
@@ -58,12 +59,15 @@ export default function AdminPointsLeaderboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [lbRes, membersRes] = await Promise.all([
-        api.get('/leaderboard'),
-        api.get('/admin/members').catch(() => ({ data: [] }))
-      ]);
-      setLeaderboard(Array.isArray(lbRes.data) ? lbRes.data : []);
-      setMembers(Array.isArray(membersRes.data) ? membersRes.data : []);
+      const membersRes = await api.get('/admin/members');
+      const all = Array.isArray(membersRes.data) ? membersRes.data : [];
+      setMembers(all);
+      // Same people and order as the public leaderboard (admins left out), re-ranked.
+      const ranked = all.filter(m => m.role !== 'admin');
+      ranked.forEach((m, i) => {
+        m.rank = i > 0 && m.total_points === ranked[i - 1].total_points ? ranked[i - 1].rank : i + 1;
+      });
+      setLeaderboard(ranked);
     } catch (err) {
       console.error('Error fetching leaderboard/members:', err);
       notify('error', 'Failed to load leaderboard data.');
@@ -103,7 +107,7 @@ export default function AdminPointsLeaderboard() {
     e.preventDefault();
     try {
       setIsSubmittingEdit(true);
-      await api.put(`/admin/leaderboard/${editData.student_id}`, editData);
+      await api.put(`/admin/leaderboard/${encodeURIComponent(editData.key)}`, editData);
       notify('success', `Updated points for ${editData.full_name} successfully!`);
       setEditModalOpen(false);
       fetchData();
@@ -148,7 +152,7 @@ export default function AdminPointsLeaderboard() {
     if (!window.confirm(`Are you sure you want to clear all points for ${name} (${studentId})?`)) return;
 
     try {
-      await api.delete(`/admin/leaderboard/${studentId}`);
+      await api.delete(`/admin/leaderboard/${encodeURIComponent(studentId)}`);
       notify('success', `Cleared points for ${name}.`);
       fetchData();
     } catch (err) {
@@ -326,7 +330,7 @@ export default function AdminPointsLeaderboard() {
                 {filtered.map((item, index) => {
                   const rank = item.rank || index + 1;
                   return (
-                    <tr key={item.student_id || index} className="hover:bg-white/[0.02] transition-colors group">
+                    <tr key={item.student_id || item.email || index} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="px-6 py-4 text-center">
                         <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-extrabold ${
                           rank === 1 ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' :
@@ -354,7 +358,7 @@ export default function AdminPointsLeaderboard() {
                       </td>
 
                       <td className="px-6 py-4 text-center font-mono text-stone-300">
-                        {item.events_count || 1}
+                        {item.events_count ?? 0}
                       </td>
 
                       <td className="px-6 py-4 text-right">
@@ -369,6 +373,7 @@ export default function AdminPointsLeaderboard() {
                           <button
                             onClick={() => {
                               setEditData({
+                                key: item.student_id || item.email,
                                 student_id: item.student_id,
                                 full_name: item.full_name,
                                 department: item.department || '',
@@ -383,7 +388,7 @@ export default function AdminPointsLeaderboard() {
                           </button>
 
                           <button
-                            onClick={() => handleResetPoints(item.student_id, item.full_name)}
+                            onClick={() => handleResetPoints(item.student_id || item.email, item.full_name)}
                             className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-rose-500/20 border border-white/10 hover:border-rose-500/40 text-stone-400 hover:text-rose-400 transition-all"
                             title="Clear Points"
                           >

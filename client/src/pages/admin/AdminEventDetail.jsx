@@ -8,6 +8,8 @@ import api from '../../utils/api';
 import StatusBadge from '../../components/ui/StatusBadge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
+const sameId = (a, b) => String(a) === String(b);
+
 const AdminEventDetail = () => {
   const { id } = useParams();
   const [activeTab, setActiveTab] = useState('overview');
@@ -19,12 +21,13 @@ const AdminEventDetail = () => {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [busyId, setBusyId] = useState(null);
   
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
       const [eventRes, regRes, attRes, resRes] = await Promise.all([
         api.get(`/events/${id}`),
         api.get(`/registrations/event/${id}`),
@@ -36,6 +39,7 @@ const AdminEventDetail = () => {
       setRegistrations(Array.isArray(regRes.data) ? regRes.data : (regRes.data.data || []));
       setAttendance(Array.isArray(attRes.data) ? attRes.data : []);
       setResults(Array.isArray(resRes.data) ? resRes.data : []);
+      setError('');
     } catch (err) {
       console.error('Error fetching event details:', err);
       setError('Failed to load event data.');
@@ -48,39 +52,51 @@ const AdminEventDetail = () => {
     fetchData();
   }, [fetchData]);
 
+  const showNotice = (message) => {
+    setNotice(message);
+    setTimeout(() => setNotice(''), 5000);
+  };
+
   const handleStatusChange = async (regId, newStatus) => {
     try {
+      setBusyId(regId);
       await api.patch(`/registrations/${regId}/status`, { status: newStatus });
-      fetchData(); // refresh data
+      await fetchData();
     } catch (err) {
       console.error('Failed to update registration status:', err);
-      alert('Failed to update registration status');
+      showNotice(err.response?.data?.error || 'Failed to update registration status');
+    } finally {
+      setBusyId(null);
     }
   };
 
+  // Present awards the event's points automatically; Absent removes them.
   const handleAttendance = async (regId, status) => {
     try {
+      setBusyId(regId);
       await api.post('/attendance', { registration_id: regId, event_id: id, status });
-      fetchData();
+      await fetchData();
     } catch (err) {
       console.error('Failed to mark attendance:', err);
-      alert('Failed to mark attendance');
+      showNotice(err.response?.data?.error || 'Failed to mark attendance');
+    } finally {
+      setBusyId(null);
     }
   };
 
   const saveResult = async (regId, data) => {
     try {
       // check if exists
-      const existing = results.find(r => r.registration_id === regId);
+      const existing = results.find(r => sameId(r.registration_id, regId));
       if (existing) {
         await api.put(`/results/${existing.id}`, data);
       } else {
         await api.post('/results', { registration_id: regId, event_id: id, ...data });
       }
-      fetchData();
+      await fetchData();
     } catch (err) {
       console.error('Failed to save result:', err);
-      alert('Failed to save result');
+      showNotice(err.response?.data?.error || 'Failed to save result');
     }
   };
 
@@ -113,8 +129,10 @@ const AdminEventDetail = () => {
   const acceptedRegs = registrations.filter(r => r.status === 'accepted');
   const rejectedRegs = registrations.filter(r => r.status === 'rejected');
   
-  const presentCount = attendance.filter(a => a.status === 'present').length;
-  const absentCount = attendance.filter(a => a.status === 'absent').length;
+  const acceptedIds = new Set(acceptedRegs.map(r => String(r.id)));
+  const presentCount = attendance.filter(a => a.status === 'present' && acceptedIds.has(String(a.registration_id))).length;
+  const absentCount = attendance.filter(a => a.status === 'absent' && acceptedIds.has(String(a.registration_id))).length;
+  const eventPoints = Number(event.points_available) || 0;
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
@@ -165,6 +183,10 @@ const AdminEventDetail = () => {
           </button>
         ))}
       </div>
+
+      {notice && (
+        <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm" role="alert">{notice}</div>
+      )}
 
       <div className="mt-6">
         {activeTab === 'overview' && (
@@ -232,7 +254,7 @@ const AdminEventDetail = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingRegs.filter(r => r.full_name.toLowerCase().includes(searchTerm.toLowerCase())).map(reg => (
+                  {pendingRegs.filter(r => (r.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())).map(reg => (
                     <tr key={reg.id} className="border-b border-white/[0.04]">
                       <td className="py-3 px-4 font-medium text-stone-200">{reg.full_name}</td>
                       <td className="py-3 px-4">
@@ -245,10 +267,10 @@ const AdminEventDetail = () => {
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex justify-end gap-2">
-                          <button onClick={() => handleStatusChange(reg.id, 'accepted')} className="px-3 py-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-sm transition-colors flex items-center gap-1">
+                          <button onClick={() => handleStatusChange(reg.id, 'accepted')} disabled={busyId === reg.id} className="disabled:opacity-50 px-3 py-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-sm transition-colors flex items-center gap-1">
                             <CheckCircle size={14} /> Accept
                           </button>
-                          <button onClick={() => handleStatusChange(reg.id, 'rejected')} className="px-3 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-sm transition-colors flex items-center gap-1">
+                          <button onClick={() => handleStatusChange(reg.id, 'rejected')} disabled={busyId === reg.id} className="disabled:opacity-50 px-3 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-sm transition-colors flex items-center gap-1">
                             <XCircle size={14} /> Reject
                           </button>
                         </div>
@@ -281,13 +303,14 @@ const AdminEventDetail = () => {
                   <tr className="bg-slate-900/50 border-b border-white/[0.04] text-stone-400 text-sm">
                     <th className="py-3 px-4 font-medium">Participant</th>
                     <th className="py-3 px-4 font-medium text-center">Attendance</th>
-                    <th className="py-3 px-4 font-medium w-48">Marks/Points</th>
+                    <th className="py-3 px-4 font-medium w-56">Marks / Points</th>
+                    <th className="py-3 px-4 font-medium text-right">Registration</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {acceptedRegs.filter(r => r.full_name.toLowerCase().includes(searchTerm.toLowerCase())).map(reg => {
-                    const att = attendance.find(a => a.registration_id === reg.id);
-                    const res = results.find(r => r.registration_id === reg.id) || {};
+                  {acceptedRegs.filter(r => (r.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())).map(reg => {
+                    const att = attendance.find(a => sameId(a.registration_id, reg.id));
+                    const res = results.find(r => sameId(r.registration_id, reg.id)) || {};
                     return (
                       <tr key={reg.id} className="border-b border-white/[0.04]">
                         <td className="py-3 px-4">
@@ -296,44 +319,62 @@ const AdminEventDetail = () => {
                         </td>
                         <td className="py-3 px-4 text-center">
                           <div className="flex justify-center gap-2">
-                            <button 
+                            <button
                               onClick={() => handleAttendance(reg.id, 'present')}
-                              className={`min-h-12 px-6 rounded-xl font-bold transition-colors ${att?.status === 'present' ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-emerald-400 border border-emerald-900/30'}`}
+                              disabled={busyId === reg.id}
+                              className={`min-h-12 px-6 rounded-xl font-bold transition-colors disabled:opacity-50 ${att?.status === 'present' ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-emerald-400 border border-emerald-900/30'}`}
                             >
                               Present
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleAttendance(reg.id, 'absent')}
-                              className={`min-h-12 px-6 rounded-xl font-bold transition-colors ${att?.status === 'absent' ? 'bg-red-500 text-white' : 'bg-slate-800 text-red-400 border border-red-900/30'}`}
+                              disabled={busyId === reg.id}
+                              className={`min-h-12 px-6 rounded-xl font-bold transition-colors disabled:opacity-50 ${att?.status === 'absent' ? 'bg-red-500 text-white' : 'bg-slate-800 text-red-400 border border-red-900/30'}`}
                             >
                               Absent
                             </button>
                           </div>
+                          <p className="text-xs mt-1.5 text-stone-500">
+                            {att?.status === 'present' ? `Marked present · +${Number(res.points ?? eventPoints) || 0} pts` : att?.status === 'absent' ? 'Marked absent · 0 pts' : 'Not marked yet'}
+                          </p>
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex gap-2">
-                            <input 
-                              type="number" 
-                              placeholder="Marks" 
-                              defaultValue={res.marks} 
+                            <input
+                              key={`m-${reg.id}-${res.marks ?? ''}`}
+                              type="number"
+                              placeholder="Marks"
+                              title="Marks"
+                              defaultValue={res.marks}  
                               onBlur={(e) => saveResult(reg.id, { marks: parseFloat(e.target.value) || 0, points: res.points })}
                               className="w-16 px-2 py-1 bg-slate-900 border border-white/[0.06] rounded text-stone-200 text-sm"
                             />
-                            <input 
-                              type="number" 
-                              placeholder="Pts" 
-                              defaultValue={res.points} 
+                            <input
+                              key={`p-${reg.id}-${res.points ?? ''}`}
+                              type="number"
+                              placeholder="Pts"
+                              title="Points (set automatically when marked present)"
+                              defaultValue={res.points}  
                               onBlur={(e) => saveResult(reg.id, { marks: res.marks, points: parseInt(e.target.value) || 0 })}
                               className="w-16 px-2 py-1 bg-slate-900 border border-white/[0.06] rounded text-stone-200 text-sm"
                             />
                           </div>
                         </td>
+                        <td className="py-3 px-4 text-right">
+                          <button onClick={() => handleStatusChange(reg.id, 'rejected')} disabled={busyId === reg.id} className="text-red-400 hover:underline text-sm disabled:opacity-50">
+                            Reject
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
+                  {acceptedRegs.length === 0 && (
+                    <tr><td colSpan="4" className="py-8 text-center text-stone-500">No accepted participants yet. Accept registrations from the Pending tab.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
+            <p className="text-xs text-stone-500 mt-4">Marking someone Present gives them this event's {eventPoints} points straight away; Absent takes them back.</p>
           </div>
         )}
 
@@ -345,25 +386,38 @@ const AdminEventDetail = () => {
                   <tr className="bg-slate-900/50 border-b border-white/[0.04] text-stone-400 text-sm">
                     <th className="py-3 px-4 font-medium">Name</th>
                     <th className="py-3 px-4 font-medium">ID / Dept</th>
+                    <th className="py-3 px-4 font-medium">Contact</th>
                     <th className="py-3 px-4 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rejectedRegs.map(reg => (
                     <tr key={reg.id} className="border-b border-white/[0.04]">
-                      <td className="py-3 px-4 font-medium text-stone-200">{reg.full_name}</td>
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-stone-200">{reg.full_name}</div>
+                        {reg.rejected_at && <div className="text-stone-500 text-xs">Rejected {new Date(reg.rejected_at).toLocaleDateString()}</div>}
+                      </td>
                       <td className="py-3 px-4">
                         <div className="text-stone-300">{reg.student_id}</div>
-                        <div className="text-stone-500 text-xs">{reg.department}</div>
+                        <div className="text-stone-500 text-xs">{reg.department}{reg.year ? ` (${reg.year})` : ''}</div>
+                      </td>
+                      <td className="py-3 px-4 text-stone-400 text-sm">
+                        <div>{reg.email}</div>
+                        <div>{reg.phone}</div>
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <button onClick={() => handleStatusChange(reg.id, 'accepted')} className="text-emerald-400 hover:underline text-sm">
-                          Move to Accepted
-                        </button>
+                        <div className="flex justify-end gap-3">
+                          <button onClick={() => handleStatusChange(reg.id, 'accepted')} disabled={busyId === reg.id} className="text-emerald-400 hover:underline text-sm disabled:opacity-50">
+                            Move to Accepted
+                          </button>
+                          <button onClick={() => handleStatusChange(reg.id, 'pending')} disabled={busyId === reg.id} className="text-amber-400 hover:underline text-sm disabled:opacity-50">
+                            Back to Pending
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
-                  {rejectedRegs.length === 0 && <tr><td colSpan="3" className="py-8 text-center text-stone-500">No rejected registrations</td></tr>}
+                  {rejectedRegs.length === 0 && <tr><td colSpan="4" className="py-8 text-center text-stone-500">No rejected registrations</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -383,10 +437,10 @@ const AdminEventDetail = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {results.sort((a,b) => (b.marks || 0) - (a.marks || 0)).map((res, idx) => (
+                  {[...results].sort((a,b) => (Number(b.points) || 0) - (Number(a.points) || 0)).map((res, idx) => (
                     <tr key={res.id} className="border-b border-white/[0.04]">
                       <td className="py-3 px-4 text-stone-300">{res.rank || idx + 1}</td>
-                      <td className="py-3 px-4 text-stone-200">{res.full_name || acceptedRegs.find(r=>r.id===res.registration_id)?.full_name}</td>
+                      <td className="py-3 px-4 text-stone-200">{res.full_name || registrations.find(r => sameId(r.id, res.registration_id))?.full_name}</td>
                       <td className="py-3 px-4 text-stone-300">{res.marks}</td>
                       <td className="py-3 px-4 text-stone-300">{res.points}</td>
                     </tr>
@@ -436,7 +490,7 @@ const AdminEventDetail = () => {
               </thead>
               <tbody>
                 {acceptedRegs.map(reg => {
-                  const att = attendance.find(a => a.registration_id === reg.id);
+                  const att = attendance.find(a => sameId(a.registration_id, reg.id));
                   return (
                     <tr key={reg.id} className="border-b border-gray-100">
                       <td className="py-2">{reg.full_name}</td>

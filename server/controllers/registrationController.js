@@ -1,4 +1,5 @@
 const pool = require('../db');
+const participation = require('../utils/participation');
 
 exports.registerForEvent = async (req, res) => {
   try {
@@ -53,7 +54,7 @@ exports.registerForEvent = async (req, res) => {
     res.status(201).json({ registration: result.rows[0], reference_id });
   } catch (error) {
     console.error('Error registering for event:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: `Registration failed: ${error.message}` });
   }
 };
 
@@ -133,10 +134,13 @@ exports.updateRegistrationStatus = async (req, res) => {
       return res.status(404).json({ error: 'Registration not found' });
     }
     
+    // Only accepted participants keep attendance and the points that came with it.
+    if (status !== 'accepted') await participation.clearParticipation(id);
+    
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating registration status:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: `Could not update registration: ${error.message}` });
   }
 };
 
@@ -197,7 +201,7 @@ exports.getMyRegistrations = async (req, res) => {
         SELECT er.id, er.event_id, er.reference_id, er.status, er.registered_at,
                e.title, e.event_date, e.start_time, e.venue, e.category, e.image_url,
                e.status AS event_status, e.points_available,
-               a.status AS attendance_status, r.points, r.rank
+               a.status AS attendance_status, r.points::float AS points, r.marks::float AS marks, r.rank
         FROM event_registrations er
         JOIN events e ON e.id = er.event_id
         LEFT JOIN attendance a ON a.registration_id = er.id
@@ -224,14 +228,21 @@ exports.getMyRegistrations = async (req, res) => {
             category: e.category, image_url: e.image_url, event_status: e.status,
             points_available: e.points_available,
             attendance_status: a ? a.status : null,
-            points: r ? r.points : null, rank: r ? r.rank : null,
+            points: r ? r.points : null, marks: r ? r.marks : null, rank: r ? r.rank : null,
           };
         })
         .filter(Boolean)
         .sort((a, b) => String(a.event_date).localeCompare(String(b.event_date)));
     }
 
-    res.json({ registrations: rows });
+    // Total points (events + admin awards) and leaderboard rank for this member.
+    const standings = participation.computeStandings(await participation.loadTables());
+    const me = participation.findPerson(standings, { email: user.email, usn: user.usn });
+    const standing = me
+      ? { total_points: me.total_points, rank: me.rank, events_count: me.events_count, ranked_members: standings.length }
+      : { total_points: 0, rank: null, events_count: 0, ranked_members: standings.length };
+
+    res.json({ registrations: rows, standing });
   } catch (error) {
     console.error('Error getting my registrations:', error);
     res.status(500).json({ error: 'Server error' });

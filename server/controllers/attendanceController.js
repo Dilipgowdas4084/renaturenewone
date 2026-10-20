@@ -1,4 +1,5 @@
 const pool = require('../db');
+const participation = require('../utils/participation');
 
 exports.markAttendance = async (req, res) => {
   try {
@@ -18,10 +19,12 @@ exports.markAttendance = async (req, res) => {
     `;
     
     const result = await pool.query(query, [event_id, registration_id, status, marked_by]);
-    res.json(result.rows[0]);
+    // Present earns the event's points straight away; Absent takes them back.
+    const awarded = await participation.syncAttendancePoints(registration_id, status);
+    res.json({ ...result.rows[0], result: awarded });
   } catch (error) {
     console.error('Error marking attendance:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: `Could not mark attendance: ${error.message}` });
   }
 };
 
@@ -47,8 +50,9 @@ exports.updateAttendance = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Attendance record not found' });
     }
-    
-    res.json(result.rows[0]);
+
+    const awarded = await participation.syncAttendancePoints(result.rows[0].registration_id, status);
+    res.json({ ...result.rows[0], result: awarded });
   } catch (error) {
     console.error('Error updating attendance:', error);
     res.status(500).json({ error: 'Server error' });

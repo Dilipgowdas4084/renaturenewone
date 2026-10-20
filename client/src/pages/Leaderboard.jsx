@@ -4,21 +4,9 @@ import api from '../utils/api';
 import { texture } from '../utils/pixelTextures';
 import { useDayNight } from '../context/DayNightContext';
 
-const DEPARTMENTS = ['Computer Science', 'Electronics', 'Mechanical', 'Civil', 'Information Science', 'Electrical', 'Biotechnology', 'Chemical', 'Aeronautical', 'Other'];
+// Same values the registration form saves, so the department filter matches.
+const DEPARTMENTS = ['Computer Science', 'Electronics & Communication', 'Mechanical Engineering', 'Biotechnology', 'Civil Engineering', 'Information Science', 'Electrical & Electronics', 'Environmental Sciences'];
 const YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
-
-const SAMPLE_DATA = [
-  { rank: 1, full_name: 'Ananya Rao', department: 'Computer Science', total_points: 280, events_count: 9 },
-  { rank: 2, full_name: 'Rohan Sharma', department: 'Biotechnology', total_points: 235, events_count: 7 },
-  { rank: 3, full_name: 'Karthik Gowda', department: 'Mechanical Eng', total_points: 195, events_count: 6 },
-  { rank: 4, full_name: 'Sneha Patel', department: 'Civil Eng', total_points: 165, events_count: 5 },
-  { rank: 5, full_name: 'Varun Nair', department: 'Information Science', total_points: 145, events_count: 5 },
-  { rank: 6, full_name: 'Pooja Hegde', department: 'Electronics', total_points: 130, events_count: 4 },
-  { rank: 7, full_name: 'Aditya Bhat', department: 'Electrical', total_points: 110, events_count: 4 },
-  { rank: 8, full_name: 'Meera Shenoy', department: 'Biotechnology', total_points: 95, events_count: 3 },
-  { rank: 9, full_name: 'Nikhil Kumar', department: 'Chemical', total_points: 85, events_count: 3 },
-  { rank: 10, full_name: 'Tanvi Kamath', department: 'Computer Science', total_points: 75, events_count: 2 },
-];
 
 const SKIES = {
   day: 'linear-gradient(#7ec8e3 0 30%, #a2d8ec 30% 60%, #c8e8ef 60%)',
@@ -147,15 +135,11 @@ export default function Leaderboard() {
       if (tab === 'year') params.year = year;
 
       const res = await api.get('/leaderboard', { params });
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        setLeaders(res.data);
-      } else {
-        setLeaders(SAMPLE_DATA);
-      }
+      setLeaders(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Failed to fetch leaderboard:', err);
       setError(true);
-      setLeaders(SAMPLE_DATA);
+      setLeaders([]);
     } finally {
       setLoading(false);
     }
@@ -220,7 +204,7 @@ export default function Leaderboard() {
           <div className="relative max-w-4xl mx-auto">
             {error && (
               <div className="mb-8 px-panel px-panel--thin p-4 bg-ember text-bark text-center font-semibold">
-                Displaying campus steward rankings and points distribution.
+                Couldn't load the rankings right now. Please try again in a moment.
               </div>
             )}
 

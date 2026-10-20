@@ -1,6 +1,7 @@
 const pool = require('../db');
 const bcrypt = require('bcryptjs');
 const siteContentStore = require('../utils/siteContentStore');
+const participation = require('../utils/participation');
 
 exports.getStats = async (req, res) => {
   try {
@@ -11,7 +12,9 @@ exports.getStats = async (req, res) => {
     const pendingParticipantsQuery = pool.query("SELECT COUNT(*) FROM event_registrations WHERE status = 'pending'");
     const rejectedParticipantsQuery = pool.query("SELECT COUNT(*) FROM event_registrations WHERE status = 'rejected'");
     const totalPresentQuery = pool.query("SELECT COUNT(*) FROM attendance WHERE status = 'present'");
-    const totalPointsAwardedQuery = pool.query("SELECT SUM(points) FROM event_results");
+    const totalPointsAwardedQuery = participation.loadTables().then((tables) => ({
+      rows: [{ sum: participation.computeStandings(tables, { includeAdmins: true }).reduce((sum, p) => sum + p.total_points, 0) }],
+    }));
     const totalUsersQuery = pool.query("SELECT COUNT(*) FROM users");
     
     const [
@@ -32,7 +35,7 @@ exports.getStats = async (req, res) => {
       pending_participants: parseInt(pendingParticipants.rows[0].count),
       rejected_participants: parseInt(rejectedParticipants.rows[0].count),
       total_present: parseInt(totalPresent.rows[0].count),
-      total_points_awarded: parseInt(totalPointsAwarded.rows[0].sum || 0),
+      total_points_awarded: Math.round(Number(totalPointsAwarded.rows[0].sum) || 0),
       total_users: parseInt(totalUsers.rows[0].count || 0)
     });
   } catch (error) {
@@ -92,56 +95,32 @@ exports.exportEventData = async (req, res) => {
   }
 };
 
+// ─── Members & Points ─────────────────────────────────────────────────────────
+// Points live in event_results (earned by attending) and point_adjustments
+// (admin awards / corrections); see utils/participation.js.
+
+const findTarget = (standings, key) => participation.findPerson(standings, {
+  email: String(key || '').includes('@') ? key : '',
+  usn: String(key || '').includes('@') ? '' : key,
+});
+
 exports.getMembers = async (req, res) => {
   try {
-    const memoryDb = pool.memoryDb;
-    if (memoryDb) {
-      const membersMap = new Map();
-
-      for (const u of memoryDb.users) {
-        membersMap.set(u.email || u.usn, {
-          id: u.id,
-          full_name: u.name,
-          email: u.email,
-          student_id: u.usn || '',
-          department: u.department || 'Environmental Sciences',
-          role: u.role,
-          total_points: 0,
-          events_count: 0
-        });
-      }
-
-      for (const er of memoryDb.event_registrations) {
-        const key = er.email || er.student_id || er.full_name;
-        if (!membersMap.has(key)) {
-          membersMap.set(key, {
-            id: er.id,
-            full_name: er.full_name,
-            email: er.email,
-            student_id: er.student_id || '',
-            department: er.department || 'General',
-            role: 'member',
-            total_points: 0,
-            events_count: 0
-          });
-        }
-      }
-
-      for (const r of memoryDb.event_results) {
-        const reg = memoryDb.event_registrations.find(x => x.id === r.registration_id);
-        if (reg) {
-          const key = reg.email || reg.student_id || reg.full_name;
-          if (membersMap.has(key)) {
-            const m = membersMap.get(key);
-            m.total_points += (parseFloat(r.points) || 0);
-            m.events_count += 1;
-          }
-        }
-      }
-
-      return res.json(Array.from(membersMap.values()));
-    }
-    res.json([]);
+    const standings = participation.computeStandings(await participation.loadTables(), {
+      includeAdmins: true,
+      includeRegistrants: true,
+    });
+    res.json(standings.map((p) => ({
+      id: p.user_id,
+      full_name: p.full_name,
+      email: p.email,
+      student_id: p.student_id,
+      department: p.department,
+      role: p.role,
+      total_points: p.total_points,
+      events_count: p.events_count,
+      rank: p.rank,
+    })));
   } catch (err) {
     console.error('Error getting members:', err);
     res.status(500).json({ error: 'Server error' });
@@ -150,64 +129,81 @@ exports.getMembers = async (req, res) => {
 
 exports.awardPoints = async (req, res) => {
   try {
-    const { student_id, email, full_name, department, points, event_id, reason } = req.body;
+    const { student_id, email, full_name, department, points, reason } = req.body;
     const pts = parseFloat(points);
     if (isNaN(pts)) {
       return res.status(400).json({ error: 'Valid points amount is required' });
     }
-
-    const memoryDb = pool.memoryDb;
-    if (memoryDb) {
-      let reg = memoryDb.event_registrations.find(
-        r => (student_id && r.student_id === student_id) || (email && r.email && r.email.toLowerCase() === email.toLowerCase())
-      );
-
-      const targetEventId = parseInt(event_id, 10) || 1;
-
-      if (!reg) {
-        reg = {
-          id: pool.nextId.event_registrations++,
-          event_id: targetEventId,
-          reference_id: `RN-BONUS-${Date.now().toString().slice(-4)}`,
-          full_name: full_name || 'Volunteer Steward',
-          student_id: student_id || `1RN23${Math.floor(1000 + Math.random()*9000)}`,
-          email: email || '',
-          phone: '',
-          department: department || 'General',
-          year: '2026',
-          status: 'accepted',
-          registered_at: new Date(),
-          accepted_at: new Date(),
-          accepted_by: 1
-        };
-        memoryDb.event_registrations.push(reg);
-      }
-
-      const newRes = {
-        id: pool.nextId.event_results++,
-        event_id: targetEventId,
-        registration_id: reg.id,
-        marks: 100,
-        points: pts,
-        rank: 1,
-        remarks: reason || 'Direct Admin Award',
-        created_at: new Date()
-      };
-      memoryDb.event_results.push(newRes);
-
-      return res.json({
-        success: true,
-        message: `Awarded ${pts} points successfully to ${reg.full_name}`,
-        points_awarded: pts
-      });
+    if (!student_id && !email) {
+      return res.status(400).json({ error: 'A student ID or email is required' });
     }
 
-    res.json({ success: true, message: 'Points awarded' });
+    // Fill in the name/department from what we already know about this person.
+    const standings = participation.computeStandings(await participation.loadTables(), { includeAdmins: true, includeRegistrants: true });
+    const known = participation.findPerson(standings, { email, usn: student_id });
+    await participation.addAdjustment({
+      email: email || known?.email,
+      student_id: student_id || known?.student_id,
+      full_name: full_name || known?.full_name,
+      department: department || known?.department,
+      points: pts,
+      reason: reason || 'Direct Admin Award',
+      created_by: req.user.id,
+    });
+
+    const name = full_name || known?.full_name || student_id || email;
+    res.json({ success: true, message: `Awarded ${pts} points successfully to ${name}`, points_awarded: pts });
   } catch (err) {
     console.error('Error awarding points:', err);
-    res.status(500).json({ error: 'Server error awarding points' });
+    res.status(500).json({ error: `Could not award points: ${err.message}` });
   }
 };
+
+// Rename a person on every registration / award they appear on (and their account).
+async function renamePerson({ email, usn }, { full_name, department }) {
+  if (!full_name && !department) return;
+  const e = participation.normEmail(email);
+  const u = participation.normUsn(usn);
+  if (pool.hasPostgres()) {
+    const where = `($3 <> '' AND LOWER(TRIM(email)) = $3) OR ($4 <> '' AND UPPER(TRIM(student_id)) = $4)`;
+    const params = [full_name || null, department || null, e, u];
+    await pool.pgQuery(`UPDATE event_registrations SET full_name = COALESCE($1, full_name), department = COALESCE($2, department) WHERE ${where}`, params);
+    await pool.pgQuery(`UPDATE point_adjustments SET full_name = COALESCE($1, full_name), department = COALESCE($2, department) WHERE ${where}`, params);
+    await pool.pgQuery(
+      `UPDATE users SET name = COALESCE($1, name), department = COALESCE($2, department)
+        WHERE ($3 <> '' AND LOWER(TRIM(email)) = $3) OR ($4 <> '' AND UPPER(TRIM(usn)) = $4)`,
+      params
+    );
+    return;
+  }
+  const db = pool.memoryDb;
+  const matches = (em, us) => (e && participation.normEmail(em) === e) || (u && participation.normUsn(us) === u);
+  for (const row of [...db.event_registrations, ...db.point_adjustments]) {
+    if (!matches(row.email, row.student_id)) continue;
+    if (full_name) row.full_name = full_name;
+    if (department) row.department = department;
+  }
+  for (const user of db.users) {
+    if (!matches(user.email, user.usn)) continue;
+    if (full_name) user.name = full_name;
+    if (department) user.department = department;
+  }
+}
+
+// Set someone's total to an exact value (records the difference as an adjustment).
+async function setTotalPoints(person, target, { reason, created_by }) {
+  const delta = Math.round((target - (person.total_points || 0)) * 100) / 100;
+  if (delta === 0) return;
+  await participation.addAdjustment({
+    email: person.email,
+    student_id: person.student_id,
+    full_name: person.full_name,
+    department: person.department,
+    points: delta,
+    reason,
+    created_by,
+  });
+}
 
 exports.updateLeaderboardEntry = async (req, res) => {
   try {
@@ -215,117 +211,59 @@ exports.updateLeaderboardEntry = async (req, res) => {
     const { total_points, full_name, department } = req.body;
     const pts = parseFloat(total_points);
 
-    const memoryDb = pool.memoryDb;
-    if (memoryDb) {
-      const regs = memoryDb.event_registrations.filter(r => r.student_id === studentId || r.email === studentId);
-      if (regs.length > 0) {
-        if (full_name) regs.forEach(r => r.full_name = full_name);
-        if (department) regs.forEach(r => r.department = department);
-
-        const regIds = new Set(regs.map(r => r.id));
-        memoryDb.event_results = memoryDb.event_results.filter(r => !regIds.has(r.registration_id));
-        memoryDb.event_results.push({
-          id: pool.nextId.event_results++,
-          event_id: 1,
-          registration_id: regs[0].id,
-          marks: 100,
-          points: isNaN(pts) ? 0 : pts,
-          rank: 1,
-          remarks: 'Adjusted by Admin',
-          created_at: new Date()
-        });
-      } else {
-        const newReg = {
-          id: pool.nextId.event_registrations++,
-          event_id: 1,
-          reference_id: `RN-LB-${Date.now().toString().slice(-4)}`,
-          full_name: full_name || 'Volunteer',
-          student_id: studentId,
-          email: '',
-          phone: '',
-          department: department || 'Environmental Sciences',
-          year: '2026',
-          status: 'accepted',
-          registered_at: new Date(),
-          accepted_at: new Date(),
-          accepted_by: 1
-        };
-        memoryDb.event_registrations.push(newReg);
-        memoryDb.event_results.push({
-          id: pool.nextId.event_results++,
-          event_id: 1,
-          registration_id: newReg.id,
-          marks: 100,
-          points: isNaN(pts) ? 0 : pts,
-          rank: 1,
-          remarks: 'Created by Admin',
-          created_at: new Date()
-        });
-      }
-      return res.json({ success: true, message: 'Leaderboard score updated' });
+    const standings = participation.computeStandings(await participation.loadTables(), { includeAdmins: true, includeRegistrants: true });
+    const person = findTarget(standings, studentId);
+    if (!person) {
+      return res.status(404).json({ error: 'No member found with that student ID' });
     }
-    res.json({ success: true });
+
+    await renamePerson({ email: person.email, usn: person.student_id }, { full_name, department });
+    if (!isNaN(pts)) {
+      await setTotalPoints(person, pts, { reason: 'Adjusted by Admin', created_by: req.user.id });
+    }
+    res.json({ success: true, message: 'Leaderboard score updated' });
   } catch (err) {
     console.error('Error updating leaderboard:', err);
-    res.status(500).json({ error: 'Server error updating leaderboard' });
+    res.status(500).json({ error: `Could not update leaderboard: ${err.message}` });
   }
 };
 
 exports.addLeaderboardEntry = async (req, res) => {
   try {
-    const { full_name, student_id, department, total_points } = req.body;
-    const pts = parseFloat(total_points) || 0;
-    const memoryDb = pool.memoryDb;
-    if (memoryDb) {
-      const reg = {
-        id: pool.nextId.event_registrations++,
-        event_id: 1,
-        reference_id: `RN-LB-${Date.now().toString().slice(-4)}`,
-        full_name: full_name || 'Volunteer Steward',
-        student_id: student_id || `1RN24EC${Math.floor(100 + Math.random()*900)}`,
-        email: req.body.email || '',
-        phone: '',
-        department: department || 'Biotechnology',
-        year: '3rd Year',
-        status: 'accepted',
-        registered_at: new Date(),
-        accepted_at: new Date(),
-        accepted_by: 1
-      };
-      memoryDb.event_registrations.push(reg);
-      memoryDb.event_results.push({
-        id: pool.nextId.event_results++,
-        event_id: 1,
-        registration_id: reg.id,
-        marks: 100,
-        points: pts,
-        rank: 1,
-        remarks: 'Admin added entry',
-        created_at: new Date()
-      });
-      return res.status(201).json({ success: true, entry: reg });
+    const { full_name, student_id, department, total_points, email } = req.body;
+    if (!full_name || (!student_id && !email)) {
+      return res.status(400).json({ error: 'Full name and student ID are required' });
     }
-    res.status(201).json({ success: true });
+    const pts = parseFloat(total_points) || 0;
+    await participation.addAdjustment({
+      email,
+      student_id,
+      full_name,
+      department,
+      points: pts,
+      reason: 'Added to leaderboard by Admin',
+      created_by: req.user.id,
+    });
+    res.status(201).json({ success: true, entry: { full_name, student_id, department, total_points: pts } });
   } catch (err) {
     console.error('Error adding leaderboard entry:', err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: `Could not add leaderboard entry: ${err.message}` });
   }
 };
 
 exports.deleteLeaderboardEntry = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const memoryDb = pool.memoryDb;
-    if (memoryDb) {
-      const regs = memoryDb.event_registrations.filter(r => r.student_id === studentId || r.email === studentId);
-      const regIds = new Set(regs.map(r => r.id));
-      memoryDb.event_results = memoryDb.event_results.filter(r => !regIds.has(r.registration_id));
-      return res.json({ success: true, message: 'Points cleared for student' });
-    }
-    res.json({ success: true });
+    const standings = participation.computeStandings(await participation.loadTables(), { includeAdmins: true, includeRegistrants: true });
+    const person = findTarget(standings, studentId);
+    await participation.clearPoints({
+      email: person?.email || (studentId.includes('@') ? studentId : ''),
+      usn: person?.student_id || (studentId.includes('@') ? '' : studentId),
+    });
+    res.json({ success: true, message: 'Points cleared for student' });
   } catch (err) {
     console.error('Error deleting leaderboard entry:', err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: `Could not clear points: ${err.message}` });
   }
 };
 
@@ -351,49 +289,37 @@ exports.updateSiteContent = async (req, res) => {
 // ─── User & Member Directory Operations ──────────────────────────────────────────
 exports.getUsers = async (req, res) => {
   try {
-    const memoryDb = pool.memoryDb;
-    if (memoryDb) {
-      const usersList = memoryDb.users.map(u => {
-        const userEmail = (u.email || '').toLowerCase().trim();
-        const userUsn = (u.usn || '').toLowerCase().trim();
-        const regs = memoryDb.event_registrations.filter(r => {
-          const rEmail = (r.email || '').toLowerCase().trim();
-          const rUsn = (r.student_id || '').toLowerCase().trim();
-          return (userEmail && rEmail === userEmail) || (userUsn && rUsn === userUsn);
-        });
+    const tables = await participation.loadTables();
+    const standings = participation.computeStandings(tables, { includeAdmins: true, includeRegistrants: true });
+    const eventsById = new Map(tables.events.map((e) => [e.id, e]));
 
-        const regIds = new Set(regs.map(r => r.id));
-        const userResults = memoryDb.event_results.filter(r => regIds.has(r.registration_id));
-        const totalPoints = userResults.reduce((sum, r) => sum + (parseFloat(r.points) || 0), 0);
+    const usersList = tables.users.map((u) => {
+      const email = participation.normEmail(u.email);
+      const usn = participation.normUsn(u.usn);
+      const regs = tables.registrations.filter((r) =>
+        (email && participation.normEmail(r.email) === email) || (usn && participation.normUsn(r.student_id) === usn));
+      const person = participation.findPerson(standings, { email: u.email, usn: u.usn });
 
-        const enrichedRegs = regs.map(r => {
-          const ev = memoryDb.events.find(e => e.id === r.event_id);
-          return {
-            ...r,
-            event_title: ev ? ev.title : 'Campus Environmental Drive',
-            event_date: ev ? ev.event_date : null
-          };
-        });
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        usn: u.usn || '',
+        phone: u.phone || '',
+        department: u.department || '',
+        year: u.year || '',
+        role: u.role || 'member',
+        created_at: u.created_at,
+        total_points: person ? person.total_points : 0,
+        events_count: regs.length,
+        registrations: regs.map((r) => {
+          const ev = eventsById.get(r.event_id);
+          return { ...r, event_title: ev ? ev.title : 'Event removed', event_date: ev ? ev.event_date : null };
+        }),
+      };
+    });
 
-        return {
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          usn: u.usn || '',
-          phone: u.phone || '',
-          department: u.department || 'Computer Science',
-          year: u.year || '1st Year',
-          role: u.role || 'member',
-          created_at: u.created_at || new Date(),
-          total_points: totalPoints,
-          events_count: regs.length,
-          registrations: enrichedRegs
-        };
-      });
-
-      return res.json(usersList);
-    }
-    res.json([]);
+    res.json(usersList);
   } catch (err) {
     console.error('getUsers error:', err);
     res.status(500).json({ error: 'Server error fetching users' });
@@ -406,50 +332,65 @@ exports.createUser = async (req, res) => {
     if (!name || !email) {
       return res.status(400).json({ error: 'Name and email are required' });
     }
-    const memoryDb = pool.memoryDb;
-    if (memoryDb) {
-      const cleanEmail = email.toLowerCase().trim();
-      const existing = memoryDb.users.find(u => (u.email || '').toLowerCase() === cleanEmail);
-      if (existing) {
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanUsn = usn ? usn.trim().toUpperCase() : '';
+    const passHash = await bcrypt.hash(password || 'Member@123', 10);
+
+    let newUser;
+    if (pool.hasPostgres()) {
+      const existing = await pool.pgQuery('SELECT id FROM users WHERE LOWER(email) = $1', [cleanEmail]);
+      if (existing.rows.length) {
         return res.status(400).json({ error: 'User with this email already exists' });
       }
-
-      const passHash = await bcrypt.hash(password || 'Member@123', 10);
-      const newUser = {
+      const result = await pool.pgQuery(
+        `INSERT INTO users (name, email, usn, phone, password_hash, role, department, year)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING id, name, email, usn, phone, role, department, year, created_at`,
+        [name, cleanEmail, cleanUsn || null, phone || null, passHash, role || 'member', department || null, year || null]
+      );
+      newUser = result.rows[0];
+    } else {
+      const memoryDb = pool.memoryDb;
+      if (memoryDb.users.find((u) => (u.email || '').toLowerCase() === cleanEmail)) {
+        return res.status(400).json({ error: 'User with this email already exists' });
+      }
+      newUser = {
         id: pool.nextId.users++,
         name,
         email: cleanEmail,
-        usn: usn ? usn.trim().toUpperCase() : '',
+        usn: cleanUsn,
         phone: phone || '',
         password_hash: passHash,
         role: role || 'member',
         department: department || 'Computer Science',
         year: year || '1st Year',
-        created_at: new Date()
+        created_at: new Date(),
       };
       memoryDb.users.unshift(newUser);
-
-      return res.status(201).json({
-        success: true,
-        user: {
-          id: newUser.id,
-          name: newUser.name,
-          email: newUser.email,
-          usn: newUser.usn,
-          phone: newUser.phone,
-          department: newUser.department,
-          year: newUser.year,
-          role: newUser.role,
-          total_points: 0,
-          events_count: 0,
-          registrations: []
-        }
-      });
     }
-    res.status(201).json({ success: true });
+
+    res.status(201).json({
+      success: true,
+      user: {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        usn: newUser.usn || '',
+        phone: newUser.phone || '',
+        department: newUser.department || '',
+        year: newUser.year || '',
+        role: newUser.role,
+        total_points: 0,
+        events_count: 0,
+        registrations: [],
+      },
+    });
   } catch (err) {
     console.error('createUser error:', err);
-    res.status(500).json({ error: 'Server error creating user' });
+    const duplicate = err.code === '23505';
+    res.status(duplicate ? 400 : 500).json({
+      error: duplicate ? 'Another account already uses that email or USN' : `Could not create user: ${err.message}`,
+    });
   }
 };
 
@@ -458,13 +399,39 @@ exports.updateUser = async (req, res) => {
     const id = parseInt(req.params.id, 10);
     const { name, email, usn, phone, role, department, year } = req.body;
 
-    const memoryDb = pool.memoryDb;
-    if (memoryDb) {
-      const user = memoryDb.users.find(u => u.id === id);
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-
+    let user;
+    let previous;
+    if (pool.hasPostgres()) {
+      const found = await pool.pgQuery('SELECT email, usn FROM users WHERE id = $1', [id]);
+      if (!found.rows.length) return res.status(404).json({ error: 'User not found' });
+      previous = found.rows[0];
+      const result = await pool.pgQuery(
+        `UPDATE users SET
+           name = COALESCE($1, name),
+           email = COALESCE($2, email),
+           usn = CASE WHEN $3::text IS NULL THEN usn ELSE NULLIF($3::text, '') END,
+           phone = COALESCE($4, phone),
+           role = COALESCE($5, role),
+           department = COALESCE($6, department),
+           year = COALESCE($7, year)
+         WHERE id = $8
+         RETURNING id, name, email, usn, phone, role, department, year, created_at`,
+        [
+          name ?? null,
+          email !== undefined ? email.toLowerCase().trim() : null,
+          usn !== undefined ? usn.trim().toUpperCase() : null,
+          phone ?? null,
+          role ?? null,
+          department ?? null,
+          year ?? null,
+          id,
+        ]
+      );
+      user = result.rows[0];
+    } else {
+      user = pool.memoryDb.users.find((u) => u.id === id);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      previous = { email: user.email, usn: user.usn };
       if (name !== undefined) user.name = name;
       if (email !== undefined) user.email = email.toLowerCase().trim();
       if (usn !== undefined) user.usn = usn.trim().toUpperCase();
@@ -472,45 +439,65 @@ exports.updateUser = async (req, res) => {
       if (role !== undefined) user.role = role;
       if (department !== undefined) user.department = department;
       if (year !== undefined) user.year = year;
+    }
 
-      const userEmail = (user.email || '').toLowerCase().trim();
-      const userUsn = (user.usn || '').toLowerCase().trim();
-      memoryDb.event_registrations.forEach(r => {
-        const rEmail = (r.email || '').toLowerCase().trim();
-        const rUsn = (r.student_id || '').toLowerCase().trim();
-        if ((userEmail && rEmail === userEmail) || (userUsn && rUsn === userUsn)) {
+    // Keep the person's existing registrations in step with their account details.
+    const e = participation.normEmail(previous.email);
+    const u = participation.normUsn(previous.usn);
+    if (pool.hasPostgres()) {
+      await pool.pgQuery(
+        `UPDATE event_registrations SET
+           full_name = COALESCE($1, full_name),
+           student_id = COALESCE(NULLIF($2, ''), student_id),
+           department = COALESCE($3, department),
+           year = COALESCE($4, year)
+         WHERE ($5 <> '' AND LOWER(TRIM(email)) = $5) OR ($6 <> '' AND UPPER(TRIM(student_id)) = $6)`,
+        [name || null, usn ? usn.trim().toUpperCase() : '', department || null, year || null, e, u]
+      );
+    } else {
+      pool.memoryDb.event_registrations.forEach((r) => {
+        if ((e && participation.normEmail(r.email) === e) || (u && participation.normUsn(r.student_id) === u)) {
           if (name) r.full_name = name;
-          if (usn) r.student_id = usn;
+          if (usn) r.student_id = usn.trim().toUpperCase();
           if (department) r.department = department;
           if (year) r.year = year;
         }
       });
-
-      return res.json({ success: true, user });
     }
-    res.json({ success: true });
+
+    const { password_hash, ...safeUser } = user;
+    res.json({ success: true, user: safeUser });
   } catch (err) {
     console.error('updateUser error:', err);
-    res.status(500).json({ error: 'Server error updating user' });
+    const duplicate = err.code === '23505';
+    res.status(duplicate ? 400 : 500).json({
+      error: duplicate ? 'Another account already uses that email or USN' : `Could not update user: ${err.message}`,
+    });
   }
 };
 
 exports.deleteUser = async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const memoryDb = pool.memoryDb;
-    if (memoryDb) {
-      const idx = memoryDb.users.findIndex(u => u.id === id);
-      if (idx === -1) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      memoryDb.users.splice(idx, 1);
-      return res.json({ success: true, message: 'User removed successfully' });
+    if (req.user && Number(req.user.id) === id) {
+      return res.status(400).json({ error: "You can't delete the account you're signed in with" });
     }
-    res.json({ success: true });
+    if (pool.hasPostgres()) {
+      // Keep the events / attendance this user created or marked; just unlink them.
+      await pool.pgQuery('UPDATE events SET created_by = NULL WHERE created_by = $1', [id]);
+      await pool.pgQuery('UPDATE attendance SET marked_by = NULL WHERE marked_by = $1', [id]);
+      await pool.pgQuery('UPDATE event_registrations SET accepted_by = NULL WHERE accepted_by = $1', [id]);
+      const result = await pool.pgQuery('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
+      if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    } else {
+      const idx = pool.memoryDb.users.findIndex((u) => u.id === id);
+      if (idx === -1) return res.status(404).json({ error: 'User not found' });
+      pool.memoryDb.users.splice(idx, 1);
+    }
+    res.json({ success: true, message: 'User removed successfully' });
   } catch (err) {
     console.error('deleteUser error:', err);
-    res.status(500).json({ error: 'Server error deleting user' });
+    res.status(500).json({ error: `Could not delete user: ${err.message}` });
   }
 };
 
@@ -523,64 +510,20 @@ exports.setUserPoints = async (req, res) => {
       return res.status(400).json({ error: 'Valid points value required' });
     }
 
-    const memoryDb = pool.memoryDb;
-    if (memoryDb) {
-      const user = memoryDb.users.find(u => u.id === userId);
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-
-      const userEmail = (user.email || '').toLowerCase().trim();
-      const userUsn = (user.usn || '').toLowerCase().trim();
-
-      let reg = memoryDb.event_registrations.find(r => {
-        const rEmail = (r.email || '').toLowerCase().trim();
-        const rUsn = (r.student_id || '').toLowerCase().trim();
-        return (userEmail && rEmail === userEmail) || (userUsn && rUsn === userUsn);
-      });
-
-      if (!reg) {
-        reg = {
-          id: pool.nextId.event_registrations++,
-          event_id: 1,
-          reference_id: `RN-USR-${Date.now().toString().slice(-4)}`,
-          full_name: user.name,
-          student_id: user.usn || `RN${userId}`,
-          email: user.email,
-          phone: user.phone || '',
-          department: user.department || 'Computer Science',
-          year: user.year || '1st Year',
-          status: 'accepted',
-          registered_at: new Date(),
-          accepted_at: new Date(),
-          accepted_by: 1
-        };
-        memoryDb.event_registrations.push(reg);
-      }
-
-      const regIds = new Set(
-        memoryDb.event_registrations
-          .filter(r => (userEmail && (r.email || '').toLowerCase().trim() === userEmail) || (userUsn && (r.student_id || '').toLowerCase().trim() === userUsn))
-          .map(r => r.id)
-      );
-      memoryDb.event_results = memoryDb.event_results.filter(r => !regIds.has(r.registration_id));
-
-      memoryDb.event_results.push({
-        id: pool.nextId.event_results++,
-        event_id: 1,
-        registration_id: reg.id,
-        marks: 100,
-        points: pts,
-        rank: 1,
-        remarks: reason || 'Direct Admin Point Adjustment',
-        created_at: new Date()
-      });
-
-      return res.json({ success: true, message: `Points updated to ${pts} for ${user.name}`, total_points: pts });
+    const tables = await participation.loadTables();
+    const user = tables.users.find((u) => Number(u.id) === userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
-    res.json({ success: true });
+    const standings = participation.computeStandings(tables, { includeAdmins: true, includeRegistrants: true });
+    const person = participation.findPerson(standings, { email: user.email, usn: user.usn }) || {
+      email: user.email, student_id: user.usn, full_name: user.name, department: user.department, total_points: 0,
+    };
+    await setTotalPoints(person, pts, { reason: reason || 'Direct Admin Point Adjustment', created_by: req.user.id });
+
+    res.json({ success: true, message: `Points updated to ${pts} for ${user.name}`, total_points: pts });
   } catch (err) {
     console.error('setUserPoints error:', err);
-    res.status(500).json({ error: 'Server error setting points' });
+    res.status(500).json({ error: `Could not set points: ${err.message}` });
   }
 };

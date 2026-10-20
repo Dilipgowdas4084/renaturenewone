@@ -13,7 +13,7 @@ exports.addResult = async (req, res) => {
         points = COALESCE($4, event_results.points),
         rank = COALESCE($5, event_results.rank),
         remarks = COALESCE($6, event_results.remarks)
-      RETURNING *
+      RETURNING *, marks::float AS marks, points::float AS points
     `;
     
     const result = await pool.query(query, [event_id, registration_id, marks, points, rank, remarks]);
@@ -37,7 +37,7 @@ exports.updateResult = async (req, res) => {
         rank = COALESCE($3, rank),
         remarks = COALESCE($4, remarks)
       WHERE id = $5
-      RETURNING *
+      RETURNING *, marks::float AS marks, points::float AS points
     `;
     
     const result = await pool.query(query, [marks, points, rank, remarks, id]);
@@ -58,7 +58,7 @@ exports.getEventResults = async (req, res) => {
     const { eventId } = req.params;
     
     const query = `
-      SELECT r.*, er.full_name, er.student_id, er.email, er.department 
+      SELECT r.*, r.marks::float AS marks, r.points::float AS points, er.full_name, er.student_id, er.email, er.department 
       FROM event_results r
       JOIN event_registrations er ON r.registration_id = er.id
       WHERE r.event_id = $1

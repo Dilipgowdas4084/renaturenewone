@@ -6,7 +6,7 @@ const pool = require('../db');
  * Keeps the built-in in-memory database across server restarts.
  *
  * When no PostgreSQL is configured, all app data (users, events, registrations,
- * attendance, results, resources) lives in `pool.memoryDb`, which used to be
+ * attendance, results, resources, point adjustments) lives in `pool.memoryDb`, which used to be
  * wiped on every restart. This snapshots it to server/data/memory-db.json after
  * each request that changes data, and loads it back on startup.
  *
@@ -17,7 +17,7 @@ const pool = require('../db');
 // Folder for saved data; override with RENATURE_DATA_DIR (e.g. to run a test server on a copy).
 const DATA_DIR = process.env.RENATURE_DATA_DIR || path.join(__dirname, '..', 'data');
 const DATA_FILE = path.join(DATA_DIR, 'memory-db.json');
-const TABLES = ['users', 'events', 'event_registrations', 'attendance', 'event_results', 'resources'];
+const TABLES = ['users', 'events', 'event_registrations', 'attendance', 'event_results', 'resources', 'point_adjustments'];
 
 function load() {
   if (pool.hasPostgres()) return;

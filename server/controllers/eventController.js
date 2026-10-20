@@ -1,5 +1,13 @@
 const pool = require('../db');
 
+// The admin form sends '' for fields left blank. Postgres rejects '' for the
+// DATE / TIME / TIMESTAMP / INT columns, so store blanks as NULL instead.
+const blankToNull = (v) => (typeof v === 'string' && v.trim() === '' ? null : v);
+const toIntOrNull = (v) => {
+  const n = parseInt(blankToNull(v), 10);
+  return Number.isNaN(n) ? null : n;
+};
+
 exports.listEvents = async (req, res) => {
   try {
     const { category, status, search } = req.query;
@@ -87,8 +95,8 @@ exports.createEvent = async (req, res) => {
     `;
     
     const params = [
-      title, description, finalImageUrl, category, event_date, start_time, end_time,
-      venue, registration_deadline, max_participants, status || 'draft', points_available || 0,
+      title, description, finalImageUrl, category, blankToNull(event_date), blankToNull(start_time), blankToNull(end_time),
+      venue, blankToNull(registration_deadline), toIntOrNull(max_participants), status || 'draft', toIntOrNull(points_available) || 0,
       eligibility, rules, organizer_info, created_by
     ];
     
@@ -98,7 +106,7 @@ exports.createEvent = async (req, res) => {
     res.status(201).json(created);
   } catch (error) {
     console.error('Error creating event:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: `Could not create event: ${error.message}` });
   }
 };
 
@@ -136,8 +144,8 @@ exports.updateEvent = async (req, res) => {
     `;
     
     const params = [
-      title, description, finalImageUrl, category, event_date, start_time, end_time,
-      venue, registration_deadline, max_participants, status, points_available,
+      title, description, finalImageUrl, category, blankToNull(event_date), blankToNull(start_time), blankToNull(end_time),
+      venue, blankToNull(registration_deadline), toIntOrNull(max_participants), status, toIntOrNull(points_available),
       eligibility, rules, organizer_info, id
     ];
     
@@ -152,7 +160,7 @@ exports.updateEvent = async (req, res) => {
     res.json(updated);
   } catch (error) {
     console.error('Error updating event:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: `Could not update event: ${error.message}` });
   }
 };
 
@@ -224,6 +232,6 @@ exports.updateEventStatus = async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating event status:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: `Could not update event status: ${error.message}` });
   }
 };

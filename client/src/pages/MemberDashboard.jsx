@@ -80,17 +80,8 @@ export default function MemberDashboard() {
         const me = meRes.data?.user || null;
         setUser(me);
         setRegistrations(Array.isArray(regRes.data?.registrations) ? regRes.data.registrations : []);
-
-        // Points & rank come from the leaderboard (not critical if it fails)
-        try {
-          const lb = await api.get('/leaderboard');
-          if (me && Array.isArray(lb.data)) {
-            const email = (me.email || '').toLowerCase();
-            const usn = (me.usn || '').toUpperCase();
-            setStanding(lb.data.find(row =>
-              (row.email || '').toLowerCase() === email || (usn && (row.student_id || '').toUpperCase() === usn)) || null);
-          }
-        } catch { /* leave standing empty */ }
+        // Total points (events attended + admin awards) and leaderboard rank
+        setStanding(regRes.data?.standing || null);
       } catch (err) {
         console.error('Could not load dashboard:', err);
         setError('Could not load your dashboard right now. Please try again in a moment.');

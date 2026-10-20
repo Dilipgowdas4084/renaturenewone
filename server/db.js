@@ -1,6 +1,11 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 const bcrypt = require('bcryptjs');
 require('./utils/loadEnv');
+
+// Return DATE columns as plain 'YYYY-MM-DD' strings. The default turns them into
+// local-midnight Date objects, which serialize to the previous day in UTC (IST is
+// +5:30) — so every save from the edit form moved the event back a day.
+types.setTypeParser(1082, (value) => value);
 
 // Pre-computed hashes for seed users:
 // Admin: renature.nmamit.nitte@gmail.com or admin@renature.org / Renature@2026 or Admin@123
@@ -386,7 +391,10 @@ const memoryDb = {
       announcement: 'Upcoming Campus Tree Plantation Drive on Oct 15! Registrations open to all students.',
       announcement_active: true
     }
-  }
+  },
+
+  // Bonus awards / corrections made by admins (see utils/participation.js)
+  point_adjustments: []
 };
 
 let nextId = {
@@ -395,7 +403,8 @@ let nextId = {
   event_registrations: 5,
   attendance: 4,
   event_results: 4,
-  resources: 5
+  resources: 5,
+  point_adjustments: 1
 };
 
 // Check if external Postgres is explicitly configured
@@ -419,6 +428,7 @@ if (hasDbConfig) {
       port: process.env.DB_PORT || 5432,
       database: process.env.DB_NAME,
       connectionTimeoutMillis: 3000,
+      max: Number(process.env.DB_POOL_MAX) || 10,
     });
     realPool.on('error', (err) => {
       console.warn('[AI Studio] PostgreSQL idle error, continuing with in-memory store:', err.message);
@@ -1103,6 +1113,11 @@ const pool = {
       try {
         return await realPool.query(text, params);
       } catch (err) {
+        // A write that Postgres rejected (bad value, constraint, etc.) must fail
+        // loudly. Falling back would "save" it only in memory, where it is never
+        // read again and is lost on restart.
+        const isSqlError = typeof err.code === 'string' && /^[0-9A-Z]{5}$/.test(err.code);
+        if (isSqlError && /^\s*(INSERT|UPDATE|DELETE)\b/i.test(text)) throw err;
         console.warn('[AI Studio] PostgreSQL query error, falling back to in-memory store:', err.message);
       }
     }
